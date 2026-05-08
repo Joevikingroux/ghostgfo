@@ -36,7 +36,7 @@ tenacity==9.0.0
 pyodbc==5.2.0
 
 # Email
-sendgrid==6.11.0
+resend==2.7.0
 
 # Utility
 python-dotenv==1.0.1

@@ -45,9 +45,9 @@ class Settings(BaseSettings):
     whatsapp_access_token: str = ""
     whatsapp_verify_token: str = ""
 
-    # Email
-    sendgrid_api_key: str = ""
-    from_email: str = "reports@numbers10.co.za"
+    # Email (Resend — resend.com)
+    resend_api_key: str = ""
+    from_email: str = "reports@ghostcfo.numbers10.co.za"
     from_name: str = "Ghost CFO"
 
     # Storage

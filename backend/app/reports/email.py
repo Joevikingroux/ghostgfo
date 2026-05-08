@@ -1,4 +1,4 @@
-"""Email delivery via SendGrid — sends the monthly report PDF as an attachment."""
+"""Email delivery via Resend (resend.com) — sends the monthly report PDF as an attachment."""
 from __future__ import annotations
 
 import base64
@@ -35,28 +35,21 @@ def send_report_email(
     narrative: dict[str, str],
     pdf_path: str | Path,
 ) -> bool:
-    """Send the monthly report email. Returns True on success."""
-    if not settings.sendgrid_api_key:
-        log.warning("email.skipped", reason="SENDGRID_API_KEY not set")
+    """Send the monthly report email via Resend. Returns True on success."""
+    if not settings.resend_api_key:
+        log.warning("email.skipped", reason="RESEND_API_KEY not set")
         return False
 
     try:
-        import sendgrid
-        from sendgrid.helpers.mail import (
-            Attachment,
-            ContentId,
-            Disposition,
-            FileContent,
-            FileName,
-            FileType,
-            Mail,
-        )
+        import resend
     except ImportError:
-        log.error("email.import_error", msg="sendgrid package not installed")
+        log.error("email.import_error", msg="resend package not installed — run: pip install resend")
         return False
 
-    month = metrics["period_month"]
-    year = metrics["period_year"]
+    resend.api_key = settings.resend_api_key
+
+    month = metrics.get("period_month", 1)
+    year = metrics.get("period_year", 2025)
     month_name = calendar.month_name[month]
 
     html_body = _jinja.get_template("email_report.html").render(
@@ -90,39 +83,26 @@ def send_report_email(
         brand_footer=settings.brand_footer,
     )
 
-    subject = (
-        f"Ghost CFO — {company_name} — {month_name} {year} Financial Report"
-    )
+    subject = f"Ghost CFO — {company_name} — {month_name} {year} Financial Report"
 
     pdf_bytes = Path(pdf_path).read_bytes()
-    encoded_pdf = base64.b64encode(pdf_bytes).decode()
     pdf_filename = f"ghostcfo_{company_name.lower().replace(' ', '_')[:30]}_{year}-{month:02d}.pdf"
 
-    message = Mail(
-        from_email=(settings.from_email, settings.from_name),
-        to_emails=to_email,
-        subject=subject,
-        html_content=html_body,
-    )
-    message.attachment = Attachment(
-        FileContent(encoded_pdf),
-        FileName(pdf_filename),
-        FileType("application/pdf"),
-        Disposition("attachment"),
-        ContentId("monthly_report"),
-    )
-
     try:
-        sg = sendgrid.SendGridAPIClient(api_key=settings.sendgrid_api_key)
-        response = sg.send(message)
-        success = response.status_code in {200, 201, 202}
-        log.info(
-            "email.sent",
-            to=to_email,
-            status=response.status_code,
-            company=company_name,
-        )
-        return success
+        response = resend.Emails.send({
+            "from": f"{settings.from_name} <{settings.from_email}>",
+            "to": [to_email],
+            "subject": subject,
+            "html": html_body,
+            "attachments": [
+                {
+                    "filename": pdf_filename,
+                    "content": base64.b64encode(pdf_bytes).decode(),
+                }
+            ],
+        })
+        log.info("email.sent", to=to_email, id=response.get("id"), company=company_name)
+        return True
     except Exception as exc:
         log.error("email.failed", to=to_email, error=str(exc))
         return False
