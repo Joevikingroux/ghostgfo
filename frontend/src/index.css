@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --brand: #2dd4bf;
+    --brand2: #06b6d4;
+  }
+
+  * {
+    border-color: theme("colors.surface.border");
+  }
+
+  body {
+    @apply bg-black text-white font-sans;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+}
+
+@layer utilities {
+  .brand-text {
+    @apply bg-brand-gradient bg-clip-text text-transparent;
+  }
+
+  .card {
+    @apply bg-surface-card border border-surface-border rounded-xl;
+  }
+
+  .input-base {
+    @apply bg-surface-card border border-surface-border rounded-lg px-3 py-2 text-sm
+           text-white placeholder-zinc-500 focus:outline-none focus:ring-1
+           focus:ring-brand-teal focus:border-brand-teal transition-colors;
+  }
+
+  .btn-primary {
+    @apply bg-brand-gradient text-black font-semibold rounded-lg px-4 py-2 text-sm
+           hover:opacity-90 active:opacity-80 transition-opacity disabled:opacity-40
+           disabled:cursor-not-allowed;
+  }
+
+  .btn-ghost {
+    @apply text-zinc-400 hover:text-white rounded-lg px-4 py-2 text-sm
+           transition-colors hover:bg-surface-card;
+  }
+}

@@ -1,0 +1,30 @@
+Account Code,Account Description,Current Month,Previous Month,YTD,Budget
+,,,,,
+,ABC Hardware (Pty) Ltd - Income Statement,,,,
+,October 2025,,,,
+,,,,,
+4000,Hardware Sales,268500.00,295000.00,2720000.00,280000.00
+4010,Tool Sales,32000.00,30000.00,318000.00,30000.00
+4020,Paint & Finishing Sales,11500.00,14130.00,128000.00,12000.00
+Total Revenue,,,,,
+,,,,,
+5000,Cost of Goods Sold - Hardware,134250.00,147500.00,1360000.00,140000.00
+5010,Cost of Goods Sold - Tools,16000.00,15000.00,159000.00,15000.00
+5020,Cost of Goods Sold - Paint,5175.00,6358.50,57600.00,5400.00
+Total Cost of Sales,,,,,
+,,,,,
+6000,Salaries & Wages,76500.00,58500.00,608000.00,60000.00
+6010,Casual Labour,11000.00,9500.00,98000.00,9000.00
+6020,Employer Contributions (UIF/SDL),1750.00,1350.00,14800.00,1350.00
+6100,Rent - Premises,22000.00,22000.00,220000.00,22000.00
+6110,Rates & Municipal Services,4500.00,4500.00,45000.00,4500.00
+6200,Telephone & Internet,2800.00,2650.00,27500.00,2500.00
+6210,Electricity,3200.00,2980.00,30500.00,3000.00
+6300,Fuel & Motor Expenses,6800.00,5200.00,61000.00,5500.00
+6400,Repairs & Maintenance,3500.00,1200.00,28000.00,2000.00
+6500,Insurance,3200.00,3200.00,32000.00,3200.00
+6600,Bank Charges & Interest,1850.00,1720.00,17800.00,1800.00
+6700,Accounting & Audit Fees,0.00,0.00,18000.00,1500.00
+6800,Advertising & Marketing,2500.00,4000.00,38000.00,3500.00
+6900,Sundry Expenses,1200.00,980.00,11500.00,1000.00
+Total Expenses,,,,,

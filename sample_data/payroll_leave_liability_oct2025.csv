@@ -1,0 +1,18 @@
+Employee Code,Employee Name,Leave Type,Balance Days,Daily Rate,Liability (Rand)
+,,,,
+,ABC Hardware (Pty) Ltd - Leave Liability Report,,,,
+,As at 31 October 2025,,,,
+,,,,
+EMP001,Sipho Nkosi,Annual Leave,25.00,855.00,21375.00
+EMP002,Marinda van der Berg,Annual Leave,18.00,600.00,10800.00
+EMP003,Thabo Sithole,Annual Leave,6.00,345.74,2074.44
+EMP004,Zanele Dlamini,Annual Leave,8.00,323.02,2584.16
+EMP005,Pieter Joubert,Annual Leave,22.00,323.02,7106.44
+EMP006,Nomsa Mahlangu,Annual Leave,5.00,300.00,1500.00
+EMP007,Danie Pretorius,Annual Leave,28.00,300.00,8400.00
+EMP008,Lungelo Buthelezi,Annual Leave,4.50,276.88,1246.00
+EMP009,Fatima Abrahams,Annual Leave,9.00,369.40,3324.66
+EMP010,Roelf du Toit,Annual Leave,3.00,267.65,802.95
+EMP011,Neo Mokoena,Annual Leave,7.00,267.65,1873.55
+EMP012,Astrid Bosman,Annual Leave,14.00,272.17,3810.38
+Total Annual Leave Liability,,,,64897.58

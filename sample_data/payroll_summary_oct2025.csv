@@ -1,0 +1,24 @@
+Employee Code,Employee Name,Department,Gross Pay,PAYE,UIF (EE),UIF (ER),SDL,Other Deductions,Net Pay
+,,,,,,,,
+,ABC Hardware (Pty) Ltd - Payroll Summary,,,,,,
+,October 2025 — NOTE: Sipho Nkosi received R3500 salary increase this month,,,,,,
+,,,,,,,,
+EMP001,Sipho Nkosi,Management,18500.00,2775.00,185.00,185.00,185.00,500.00,15040.00
+EMP002,Marinda van der Berg,Management,13000.00,1560.00,130.00,130.00,130.00,500.00,10810.00
+EMP003,Thabo Sithole,Sales,7500.00,375.00,75.00,75.00,75.00,200.00,6850.00
+EMP004,Zanele Dlamini,Sales,7000.00,350.00,70.00,70.00,70.00,200.00,6380.00
+EMP005,Pieter Joubert,Sales,7000.00,350.00,70.00,70.00,70.00,0.00,6580.00
+EMP006,Nomsa Mahlangu,Warehouse,6500.00,325.00,65.00,65.00,65.00,300.00,5810.00
+EMP007,Danie Pretorius,Warehouse,6500.00,325.00,65.00,65.00,65.00,0.00,6110.00
+EMP008,Lungelo Buthelezi,Warehouse,6000.00,300.00,60.00,60.00,60.00,200.00,5440.00
+EMP009,Fatima Abrahams,Admin,8000.00,800.00,80.00,80.00,80.00,350.00,6770.00
+EMP010,Roelf du Toit,Delivery,5800.00,290.00,58.00,58.00,58.00,0.00,5452.00
+EMP011,Neo Mokoena,Delivery,5800.00,290.00,58.00,58.00,58.00,0.00,5452.00
+EMP012,Astrid Bosman,Admin,5900.00,295.00,59.00,59.00,59.00,350.00,5196.00
+,Department Subtotal,,,,,,,
+Management,,31500.00,,,,,,,
+Sales,,21500.00,,,,,,,
+Warehouse,,19000.00,,,,,,,
+Admin,,13900.00,,,,,,,
+Delivery,,11600.00,,,,,,,
+Grand Total,,87500.00,7735.00,875.00,875.00,875.00,2600.00,75490.00

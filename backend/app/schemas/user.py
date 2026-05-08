@@ -1,0 +1,33 @@
+"""User schemas."""
+from __future__ import annotations
+
+import uuid
+
+from pydantic import BaseModel, EmailStr, field_validator
+
+
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+    full_name: str | None = None
+    role: str = "viewer"
+    company_id: uuid.UUID | None = None
+
+    @field_validator("role")
+    @classmethod
+    def valid_role(cls, v: str) -> str:
+        allowed = {"owner", "bookkeeper", "viewer", "admin"}
+        if v not in allowed:
+            raise ValueError(f"role must be one of {allowed}")
+        return v
+
+
+class UserOut(BaseModel):
+    id: uuid.UUID
+    email: str
+    full_name: str | None
+    role: str
+    company_id: uuid.UUID | None
+    active: bool
+
+    model_config = {"from_attributes": True}

@@ -1,0 +1,75 @@
+# ── Environment & secrets ──────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+!.env.example
+*.env
+
+# ── Python ─────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+*.log
+logs/
+
+# ── Node / frontend ────────────────────────────────────────────────────────────
+node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/build/
+*.tsbuildinfo
+
+# ── Docker ─────────────────────────────────────────────────────────────────────
+docker-compose.override.yml
+
+# ── Database dumps ─────────────────────────────────────────────────────────────
+*.sql.gz
+*.dump
+pgdata/
+
+# ── Uploads / generated reports (runtime data, not source) ────────────────────
+uploads/
+reports/output/
+sample_data/output/
+agent_payloads/
+*.pdf
+
+# ── PyInstaller agent build artefacts ─────────────────────────────────────────
+agent/dist/
+agent/build/
+
+# ── IDE & OS ───────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+desktop.ini
+Thumbs.db
+
+# ── Certificates / keys ────────────────────────────────────────────────────────
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets/

@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="{{ lang | default('en') }}">
+<head>
+  <meta charset="UTF-8">
+  <title>Ghost CFO — {{ metrics.company_name }} {{ month_name }} {{ metrics.period_year }}</title>
+  <link rel="stylesheet" href="{{ styles_url }}">
+</head>
+<body>
+
+<!-- Running footer rendered by WeasyPrint's element() -->
+<div id="footer-running">
+  {{ brand_footer }} &nbsp;|&nbsp; {{ metrics.company_name }} &nbsp;|&nbsp; {{ month_name }} {{ metrics.period_year }}
+</div>
+
+<!-- ================================================================
+     HEADER
+     ================================================================ -->
+<div class="report-header">
+  <div>
+    <h1>Ghost CFO</h1>
+    <div class="subtitle">Monthly Financial Report &mdash; {{ metrics.company_name }}</div>
+  </div>
+  <div class="header-right">
+    <div class="period">{{ month_name }} {{ metrics.period_year }}</div>
+    <div style="margin-top:4pt">
+      Health Score: <strong>{{ metrics.health_score }}/100</strong>
+      &nbsp;
+      <span class="health-badge {{ metrics.health_rating | health_class }}">{{ metrics.health_rating }}</span>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================
+     EXECUTIVE SUMMARY
+     ================================================================ -->
+<div class="summary-strip">
+  {{ narrative.summary }}
+</div>
+
+{% if metrics.health_flags %}
+<div class="flags" style="margin-bottom:14pt">
+  {% for flag in metrics.health_flags %}
+    <span class="flag-item">&#9888; {{ flag }}</span>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- ================================================================
+     METRIC TILES — Revenue / Costs / Cash / Payroll
+     ================================================================ -->
+<div class="tile-row">
+  <div class="tile">
+    <div class="tile-label">Revenue</div>
+    <div class="tile-value">{{ metrics.revenue_current_month | currency }}</div>
+    <div class="tile-delta {{ metrics.revenue_change_pct | pct_class }}">
+      {{ "%+.1f" | format(metrics.revenue_change_pct) }}% vs last month
+    </div>
+  </div>
+  <div class="tile">
+    <div class="tile-label">Gross Margin</div>
+    <div class="tile-value">{{ "%.1f" | format(metrics.gross_margin_pct) }}%</div>
+    <div class="tile-delta neutral">{{ metrics.gross_margin_trend }}</div>
+  </div>
+  <div class="tile">
+    <div class="tile-label">Total Costs</div>
+    <div class="tile-value">{{ metrics.total_costs_current | currency }}</div>
+    <div class="tile-delta {{ metrics.cost_change_pct | pct_class }}">
+      {{ "%+.1f" | format(metrics.cost_change_pct) }}% vs last month
+    </div>
+  </div>
+  <div class="tile">
+    <div class="tile-label">Cash Balance</div>
+    <div class="tile-value">{{ metrics.cash_balance | currency }}</div>
+    <div class="tile-delta neutral">{{ "%.1f" | format(metrics.cash_runway_weeks) }} weeks runway</div>
+  </div>
+</div>
+
+{% if metrics.payroll_gross_total %}
+<div class="tile-row">
+  <div class="tile">
+    <div class="tile-label">Gross Payroll</div>
+    <div class="tile-value">{{ metrics.payroll_gross_total | currency }}</div>
+    <div class="tile-delta {{ metrics.payroll_change_pct | pct_class }}">
+      {{ "%+.1f" | format(metrics.payroll_change_pct) }}% vs last month
+    </div>
+  </div>
+  <div class="tile">
+    <div class="tile-label">True Employer Cost</div>
+    <div class="tile-value">{{ metrics.payroll_true_employer_cost | currency }}</div>
+    <div class="tile-delta neutral">incl. UIF &amp; SDL</div>
+  </div>
+  <div class="tile">
+    <div class="tile-label">Headcount</div>
+    <div class="tile-value">{{ metrics.payroll_headcount }}</div>
+    <div class="tile-delta neutral">employees on payroll</div>
+  </div>
+  <div class="tile">
+    <div class="tile-label">Payroll % of Revenue</div>
+    <div class="tile-value">{{ "%.1f" | format(metrics.payroll_pct_of_revenue) }}%</div>
+    <div class="tile-delta {{ "neg" if metrics.payroll_pct_of_revenue > 40 else "neutral" }}">
+      {{ "HIGH — review" if metrics.payroll_pct_of_revenue > 40 else "within range" }}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ================================================================
+     SECTIONS
+     ================================================================ -->
+
+<!-- Revenue -->
+<div class="section">
+  <h2>&#9650; Revenue</h2>
+  <p class="narrative">{{ narrative.revenue }}</p>
+</div>
+
+<!-- Costs -->
+<div class="section">
+  <h2>&#9660; Costs</h2>
+  <p class="narrative">{{ narrative.costs }}</p>
+</div>
+
+<!-- Debtors -->
+<div class="section">
+  <h2>&#128196; Customers (Debtors)</h2>
+  <p class="narrative">{{ narrative.debtors }}</p>
+
+  <!-- Debtor aging bar -->
+  {% if metrics.debtors_total > 0 %}
+  {% set dt = metrics.debtors_total %}
+  {% set pct_cur  = metrics.debtors_current / dt * 100 %}
+  {% set pct_3060 = metrics.debtors_30_60_days / dt * 100 %}
+  {% set pct_6190 = metrics.debtors_61_90_days / dt * 100 %}
+  {% set pct_90p  = metrics.debtors_over_90_days / dt * 100 %}
+  <div style="margin-bottom:10pt">
+    <div style="height:10pt;border-radius:5pt;overflow:hidden;display:flex">
+      <div style="width:{{ "%.1f" | format(pct_cur) }}%;background:#059669"></div>
+      <div style="width:{{ "%.1f" | format(pct_3060) }}%;background:#d97706"></div>
+      <div style="width:{{ "%.1f" | format(pct_6190) }}%;background:#ea580c"></div>
+      <div style="width:{{ "%.1f" | format(pct_90p) }}%;background:#dc2626"></div>
+    </div>
+    <div style="display:flex;gap:12pt;margin-top:4pt;flex-wrap:wrap">
+      {% if metrics.debtors_current > 0 %}
+      <span style="font-size:7.5pt;color:#059669">&#9632; Current: {{ metrics.debtors_current | currency }}</span>
+      {% endif %}
+      {% if metrics.debtors_30_60_days > 0 %}
+      <span style="font-size:7.5pt;color:#d97706">&#9632; 30–60 days: {{ metrics.debtors_30_60_days | currency }}</span>
+      {% endif %}
+      {% if metrics.debtors_61_90_days > 0 %}
+      <span style="font-size:7.5pt;color:#ea580c">&#9632; 61–90 days: {{ metrics.debtors_61_90_days | currency }}</span>
+      {% endif %}
+      {% if metrics.debtors_over_90_days > 0 %}
+      <span style="font-size:7.5pt;color:#dc2626">&#9632; 90+ days: {{ metrics.debtors_over_90_days | currency }}</span>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if metrics.worst_offenders %}
+  <table class="debtor-table">
+    <thead>
+      <tr>
+        <th>Customer</th>
+        <th>Overdue Value</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in metrics.worst_offenders %}
+      <tr>
+        <td>{{ d.name }}</td>
+        <td class="amount">{{ d.overdue_value | currency }}</td>
+        <td>
+          {% if d.worst_bucket == "90+" %}
+            <span class="badge-critical">{{ d.worst_bucket }}</span>
+          {% else %}
+            <span class="badge-warning">{{ d.worst_bucket }}</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+
+<!-- Payroll -->
+{% if metrics.payroll_gross_total %}
+<div class="section">
+  <h2>&#128101; Payroll &amp; Staff Costs</h2>
+  <p class="narrative">{{ narrative.payroll }}</p>
+
+  <table class="payroll-table">
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th style="text-align:right">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Gross Payroll</td>
+        <td class="amount">{{ metrics.payroll_gross_total | currency }}</td>
+      </tr>
+      <tr>
+        <td>PAYE Deducted from Employees</td>
+        <td class="amount">— (employee deduction)</td>
+      </tr>
+      <tr>
+        <td>Employer UIF (1% of gross)</td>
+        <td class="amount">{{ metrics.payroll_employer_uif | currency }}</td>
+      </tr>
+      <tr>
+        <td>Employer SDL (1% of gross)</td>
+        <td class="amount">{{ metrics.payroll_employer_sdl | currency }}</td>
+      </tr>
+      <tr style="font-weight:700;border-top:1pt solid #2DD4BF">
+        <td>True Employer Cost</td>
+        <td class="amount">{{ metrics.payroll_true_employer_cost | currency }}</td>
+      </tr>
+      <tr>
+        <td>Leave Liability (annual leave owed to staff)</td>
+        <td class="amount">{{ metrics.leave_liability_rand | currency }}</td>
+      </tr>
+      <tr>
+        <td>Next Payroll Run</td>
+        <td class="amount" style="text-align:right">{{ metrics.next_payroll_date }}</td>
+      </tr>
+      <tr>
+        <td>Cash Covers Next Payroll (1.5&times;)?</td>
+        <td class="amount" style="text-align:right;{{ "color:#dc2626" if not metrics.cash_covers_payroll else "color:#059669" }}">
+          {{ "YES" if metrics.cash_covers_payroll else "NO — URGENT" }}
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Cash Position -->
+<div class="section">
+  <h2>&#128176; Cash Position</h2>
+  <p class="narrative">{{ narrative.cash }}</p>
+
+  <!-- Cash runway visual: filled bar representing weeks until zero -->
+  {% set runway_pct = [metrics.cash_runway_weeks / 26 * 100, 100] | min %}
+  {% set runway_colour = "#059669" if metrics.cash_runway_weeks >= 12
+     else ("#d97706" if metrics.cash_runway_weeks >= 6 else "#dc2626") %}
+  <div style="margin-top:10pt">
+    <div style="display:flex;justify-content:space-between;font-size:8pt;color:#666;margin-bottom:4pt">
+      <span>Cash Runway</span>
+      <span><strong>{{ "%.1f" | format(metrics.cash_runway_weeks) }} weeks</strong> remaining</span>
+    </div>
+    <div style="height:8pt;background:#f1f5f9;border-radius:4pt;overflow:hidden">
+      <div style="height:100%;width:{{ "%.1f" | format(runway_pct) }}%;background:{{ runway_colour }};border-radius:4pt;"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:7.5pt;color:#aaa;margin-top:2pt">
+      <span>0 weeks</span>
+      <span style="color:{{ "#d97706" if metrics.cash_runway_weeks < 12 else "#059669" }}">
+        12 wk target
+      </span>
+      <span>26 weeks</span>
+    </div>
+  </div>
+</div>
+
+<!-- Recommended Actions -->
+<div class="section">
+  <h2>&#9989; Recommended Actions</h2>
+  <div class="actions-section">
+    <p class="narrative">{{ narrative.actions }}</p>
+  </div>
+</div>
+
+</body>
+</html>

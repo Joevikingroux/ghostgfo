@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ghost CFO — {{ month_name }} {{ year }} Report</title>
+  <style>
+    body { margin:0; padding:0; background:#f4f4f5; font-family:Inter,Arial,sans-serif; font-size:14px; color:#1a1a1a; }
+    .wrapper { max-width:600px; margin:32px auto; background:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.08); }
+    .header { background:#000000; padding:28px 32px 24px; }
+    .header h1 { margin:0 0 4px; font-size:22px; font-weight:700; color:#2DD4BF; letter-spacing:-0.5px; }
+    .header p { margin:0; font-size:13px; color:#888; }
+    .score-bar { background:#0d0d0d; padding:16px 32px; display:flex; align-items:center; justify-content:space-between; }
+    .score-num { font-size:28px; font-weight:700; color:#2DD4BF; }
+    .score-label { font-size:12px; color:#666; margin-top:2px; text-transform:uppercase; letter-spacing:0.5px; }
+    .badge { display:inline-block; padding:3px 12px; border-radius:20px; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; }
+    .badge-excellent { background:#d1fae5; color:#065f46; }
+    .badge-good      { background:#dcfce7; color:#166534; }
+    .badge-fair      { background:#fef9c3; color:#713f12; }
+    .badge-poor      { background:#fed7aa; color:#7c2d12; }
+    .badge-critical  { background:#fee2e2; color:#991b1b; }
+    .body { padding:28px 32px; }
+    .section { margin-bottom:24px; }
+    .section-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:#2DD4BF; border-bottom:1px solid #e5e7eb; padding-bottom:6px; margin-bottom:10px; }
+    .section p { margin:0; font-size:14px; line-height:1.65; color:#374151; }
+    .metrics-row { display:flex; gap:12px; margin-bottom:24px; }
+    .metric { flex:1; background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; padding:12px 14px; }
+    .metric-label { font-size:10px; color:#9ca3af; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:4px; }
+    .metric-value { font-size:18px; font-weight:700; color:#111827; }
+    .metric-delta { font-size:11px; margin-top:2px; }
+    .pos { color:#059669; }
+    .neg { color:#dc2626; }
+    .flags { margin-bottom:20px; }
+    .flag { display:inline-block; background:#fffbeb; border:1px solid #fcd34d; color:#92400e; font-size:11px; padding:3px 10px; border-radius:20px; margin:2px 2px 0 0; }
+    .actions-box { background:#f0fdfa; border-left:3px solid #2DD4BF; padding:14px 16px; border-radius:0 6px 6px 0; }
+    .actions-box pre { margin:0; font-family:Inter,Arial,sans-serif; font-size:13px; line-height:1.7; color:#134e4a; white-space:pre-line; }
+    .cta { text-align:center; margin:28px 0 4px; }
+    .cta a { display:inline-block; background:linear-gradient(135deg,#2DD4BF,#06B6D4); color:#000; font-weight:700; font-size:14px; text-decoration:none; padding:12px 28px; border-radius:8px; }
+    .footer { background:#f9fafb; border-top:1px solid #e5e7eb; padding:16px 32px; text-align:center; font-size:11px; color:#9ca3af; }
+    .footer a { color:#6b7280; }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>Ghost CFO</h1>
+    <p>{{ company_name }} &nbsp;·&nbsp; {{ month_name }} {{ year }} Financial Report</p>
+  </div>
+
+  <!-- Health score bar -->
+  <div class="score-bar">
+    <div>
+      <div class="score-num">{{ health_score }}<span style="font-size:16px;color:#555">/100</span></div>
+      <div class="score-label">Business Health Score</div>
+    </div>
+    <span class="badge badge-{{ health_rating }}">{{ health_rating }}</span>
+  </div>
+
+  <div class="body">
+
+    <!-- Flags -->
+    {% if health_flags %}
+    <div class="flags">
+      {% for flag in health_flags %}
+      <span class="flag">⚑ {{ flag }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Summary -->
+    <div class="section">
+      <div class="section-title">Executive Summary</div>
+      <p>{{ narrative_summary }}</p>
+    </div>
+
+    <!-- Key metrics -->
+    <div class="metrics-row">
+      <div class="metric">
+        <div class="metric-label">Revenue</div>
+        <div class="metric-value">{{ revenue_current | currency }}</div>
+        <div class="metric-delta {{ 'pos' if revenue_change_pct >= 0 else 'neg' }}">
+          {{ "%+.1f" | format(revenue_change_pct) }}% vs last month
+        </div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Gross Margin</div>
+        <div class="metric-value">{{ "%.1f" | format(gross_margin_pct) }}%</div>
+        <div class="metric-delta" style="color:#6b7280">{{ gross_margin_trend }}</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Cash Balance</div>
+        <div class="metric-value">{{ cash_balance | currency }}</div>
+        <div class="metric-delta" style="color:#6b7280">{{ "%.1f" | format(cash_runway_weeks) }} wks runway</div>
+      </div>
+    </div>
+
+    {% if payroll_gross > 0 %}
+    <div class="metrics-row">
+      <div class="metric">
+        <div class="metric-label">Gross Payroll</div>
+        <div class="metric-value">{{ payroll_gross | currency }}</div>
+        <div class="metric-delta {{ 'neg' if payroll_change_pct > 10 else '' }}">
+          {{ "%+.1f" | format(payroll_change_pct) }}% vs last month
+        </div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Staff % of Revenue</div>
+        <div class="metric-value">{{ "%.1f" | format(payroll_pct_of_revenue) }}%</div>
+        <div class="metric-delta {{ 'neg' if payroll_pct_of_revenue > 40 else '' }}">
+          {{ "High — review" if payroll_pct_of_revenue > 40 else "Within range" }}
+        </div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Leave Liability</div>
+        <div class="metric-value">{{ leave_liability | currency }}</div>
+        <div class="metric-delta" style="color:#6b7280">{{ "%.1f" | format(leave_weeks) }} wks payroll</div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Narrative sections -->
+    {% for title, text in sections %}
+    {% if text %}
+    <div class="section">
+      <div class="section-title">{{ title }}</div>
+      <p>{{ text }}</p>
+    </div>
+    {% endif %}
+    {% endfor %}
+
+    <!-- Actions -->
+    {% if narrative_actions %}
+    <div class="section">
+      <div class="section-title">Recommended Actions</div>
+      <div class="actions-box">
+        <pre>{{ narrative_actions }}</pre>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- CTA -->
+    <div class="cta">
+      <a href="{{ portal_url }}">View Full Report Online →</a>
+    </div>
+
+    <p style="text-align:center;font-size:12px;color:#9ca3af;margin-top:12px">
+      Your PDF report is attached to this email.
+    </p>
+
+  </div>
+
+  <div class="footer">
+    {{ brand_footer }}<br>
+    <a href="{{ portal_url }}">ghostcfo.numbers10.co.za</a>
+    &nbsp;·&nbsp;
+    This report is confidential and intended only for {{ company_name }}.
+  </div>
+
+</div>
+</body>
+</html>

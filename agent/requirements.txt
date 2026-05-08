@@ -1,0 +1,7 @@
+pyodbc==5.2.0
+httpx==0.28.0
+cryptography==43.0.3
+click==8.1.7
+tenacity==9.0.0
+python-dotenv==1.0.1
+pyinstaller==6.11.1

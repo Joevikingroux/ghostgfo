@@ -1,0 +1,12 @@
+Creditor Code,Creditor Name,Current,30 Days,60 Days,90 Days,90+ Days,Total Outstanding
+,,,,,,,
+,ABC Hardware (Pty) Ltd - Creditor Age Analysis,,,,,
+,As at 31 October 2025,,,,,
+,,,,,,,
+BUCO001,BUCO Building Materials,28500.00,0.00,0.00,0.00,0.00,28500.00
+RAWSON002,Rawson Paints Pty Ltd,12800.00,4200.00,0.00,0.00,0.00,17000.00
+LANCE003,Lancewood Hardware Wholesale,8900.00,0.00,0.00,0.00,0.00,8900.00
+ELECTRO004,Electrosales Distributors,0.00,6300.00,4800.00,0.00,0.00,11100.00
+TOOLS005,Total Tools SA,2200.00,0.00,0.00,0.00,0.00,2200.00
+,,,,,,,
+Total,Total Outstanding,52400.00,10500.00,4800.00,0.00,0.00,67700.00

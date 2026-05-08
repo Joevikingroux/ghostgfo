@@ -1,0 +1,14 @@
+Customer Code,Customer Name,Current,30 Days,60 Days,90 Days,90+ Days,Total
+,,,,,,,
+,ABC Hardware (Pty) Ltd - Debtor Age Analysis,,,,,
+,As at 31 October 2025,,,,,
+,,,,,,,
+C001,Brikweld Construction (Pty) Ltd,18500.00,0.00,0.00,0.00,0.00,18500.00
+C002,Sunshine Renovations,0.00,14200.00,9800.00,0.00,0.00,24000.00
+C003,Ndaba General Builders,12000.00,0.00,0.00,0.00,0.00,12000.00
+C004,Cape Coastal Contractors,0.00,0.00,0.00,7500.00,4200.00,11700.00
+C005,Presto Painting CC,5800.00,3200.00,0.00,0.00,0.00,9000.00
+C006,Atlas Plumbing & Hardware,0.00,0.00,6300.00,0.00,0.00,6300.00
+C007,Mbeki Brothers Hardware,8500.00,0.00,0.00,0.00,0.00,8500.00
+C008,Du Plessis Farming Trust,0.00,0.00,0.00,4000.00,0.00,4000.00
+Total,44800.00,17400.00,16100.00,11500.00,4200.00,94000.00
