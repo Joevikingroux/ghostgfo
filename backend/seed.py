@@ -1,12 +1,13 @@
 """Create the first admin user and optionally a test company.
 
 Usage:
-    python seed.py
-    python seed.py --email admin@numbers10.co.za --password secret123
-    python seed.py --email admin@numbers10.co.za --password secret123 --with-test-company
+    python seed.py --password <choose-a-strong-password>
+    python seed.py --email admin@numbers10.co.za --password <password>
+    python seed.py --email admin@numbers10.co.za --password <password> --with-test-company
 """
 from __future__ import annotations
 
+import secrets
 import sys
 from pathlib import Path
 
@@ -26,14 +27,23 @@ configure_logging()
 
 @click.command()
 @click.option("--email", default="admin@numbers10.co.za", show_default=True)
-@click.option("--password", default="changeme123", show_default=True)
+@click.option(
+    "--password",
+    default=None,
+    help="Admin password. A random password is generated and printed if omitted.",
+)
 @click.option(
     "--with-test-company",
     is_flag=True,
     default=False,
-    help="Also create ABC Hardware test company.",
+    help="Also create ABC Hardware test company with placeholder credentials.",
 )
-def seed(email: str, password: str, with_test_company: bool) -> None:
+def seed(email: str, password: str | None, with_test_company: bool) -> None:
+    if not password:
+        password = secrets.token_urlsafe(16)
+        click.echo(f"  Generated admin password: {password}")
+        click.echo("  (save this — it won't be shown again)")
+
     db = SessionLocal()
     try:
         existing = db.execute(select(User).where(User.email == email)).scalar_one_or_none()
@@ -59,11 +69,11 @@ def seed(email: str, password: str, with_test_company: bool) -> None:
                     name="ABC Hardware (Pty) Ltd",
                     trading_name="ABC Hardware",
                     industry="Retail - Hardware",
-                    owner_name="Johan van Rensburg",
-                    owner_email="johan@abchardware.co.za",
-                    owner_whatsapp="+27821234567",
-                    bookkeeper_name="Sandra Botha",
-                    bookkeeper_email="sandra@abchardware.co.za",
+                    owner_name="Test Owner",
+                    owner_email="owner@example.co.za",
+                    owner_whatsapp="+27800000000",
+                    bookkeeper_name="Test Bookkeeper",
+                    bookkeeper_email="bookkeeper@example.co.za",
                     plan="professional",
                     data_source="partner",
                 )
@@ -72,23 +82,26 @@ def seed(email: str, password: str, with_test_company: bool) -> None:
                 db.refresh(company)
                 click.echo(f"  ✓ Test company created: {company.name} (id={company.id})")
 
+                bk_pass = secrets.token_urlsafe(12)
+                ow_pass = secrets.token_urlsafe(12)
                 bookkeeper = User(
-                    email="sandra@abchardware.co.za",
-                    password_hash=hash_password("testpass123"),
-                    full_name="Sandra Botha",
+                    email="bookkeeper@example.co.za",
+                    password_hash=hash_password(bk_pass),
+                    full_name="Test Bookkeeper",
                     role="bookkeeper",
                     company_id=company.id,
                 )
                 owner = User(
-                    email="johan@abchardware.co.za",
-                    password_hash=hash_password("testpass123"),
-                    full_name="Johan van Rensburg",
+                    email="owner@example.co.za",
+                    password_hash=hash_password(ow_pass),
+                    full_name="Test Owner",
                     role="owner",
                     company_id=company.id,
                 )
                 db.add_all([bookkeeper, owner])
                 db.commit()
-                click.echo("  ✓ Test company users created (bookkeeper + owner)")
+                click.echo(f"  ✓ Test bookkeeper: bookkeeper@example.co.za / {bk_pass}")
+                click.echo(f"  ✓ Test owner:      owner@example.co.za / {ow_pass}")
             else:
                 click.echo("  Test company already exists — skipping.")
     finally:

@@ -101,8 +101,8 @@ export default function SettingsPage() {
             label="WhatsApp Number"
             value={form.owner_whatsapp ?? ""}
             onChange={set("owner_whatsapp")}
-            placeholder="+27821234567"
-            hint="International format with country code, e.g. +27821234567"
+            placeholder="+27800000000"
+            hint="International format with country code, e.g. +27800000000"
           />
         </div>
 

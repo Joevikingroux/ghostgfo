@@ -439,7 +439,7 @@ CREATE TABLE companies (
     -- Contact details
     owner_name      TEXT,
     owner_email     TEXT,
-    owner_whatsapp  TEXT,          -- Format: +27821234567
+    owner_whatsapp  TEXT,          -- Format: +27800000000
     bookkeeper_name TEXT,
     bookkeeper_email TEXT,
     -- Plan and billing
