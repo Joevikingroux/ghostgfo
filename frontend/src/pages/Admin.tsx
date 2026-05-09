@@ -22,6 +22,397 @@ function syncBadge(status: string | null) {
   );
 }
 
+// ── New Company form ───────────────────────────────────────────────────────
+
+const BLANK_COMPANY = {
+  name: "", trading_name: "", industry: "",
+  owner_name: "", owner_email: "", owner_whatsapp: "",
+  bookkeeper_name: "", bookkeeper_email: "",
+  plan: "starter", data_source: "partner", language: "en",
+};
+
+function NewCompanyForm({ onCreated }: { onCreated: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState(BLANK_COMPANY);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm((p) => ({ ...p, [k]: e.target.value }));
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      await axios.post("/api/companies", form, { withCredentials: true });
+      setForm(BLANK_COMPANY);
+      setOpen(false);
+      onCreated();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setError(msg || "Failed to create company.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="card">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between p-5 text-left"
+      >
+        <span className="font-heading text-sm font-bold text-brand-teal uppercase tracking-wider">
+          + Add New Client
+        </span>
+        <span className="text-zinc-500 text-sm">{open ? "▲" : "▼"}</span>
+      </button>
+
+      {open && (
+        <form onSubmit={handleSubmit} className="px-5 pb-5 space-y-4 border-t border-surface-border pt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">Company Name *</label>
+              <input required value={form.name} onChange={set("name")} className="input-base w-full" placeholder="ABC Hardware (Pty) Ltd" />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">Trading Name</label>
+              <input value={form.trading_name} onChange={set("trading_name")} className="input-base w-full" placeholder="ABC Hardware" />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">Industry</label>
+              <input value={form.industry} onChange={set("industry")} className="input-base w-full" placeholder="Retail - Hardware" />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">Plan</label>
+              <select value={form.plan} onChange={set("plan")} className="input-base w-full">
+                <option value="starter">Starter — R500/mo</option>
+                <option value="professional">Professional — R900/mo</option>
+                <option value="premium">Premium — R1,500/mo</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">Data Source</label>
+              <select value={form.data_source} onChange={set("data_source")} className="input-base w-full">
+                <option value="partner">Pastel Partner (file upload)</option>
+                <option value="evolution">Pastel Evolution (SQL agent)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">Report Language</label>
+              <select value={form.language} onChange={set("language")} className="input-base w-full">
+                <option value="en">English</option>
+                <option value="af">Afrikaans</option>
+              </select>
+            </div>
+          </div>
+
+          <p className="text-xs text-zinc-500 uppercase tracking-wider pt-2">Owner Contact</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">Owner Name</label>
+              <input value={form.owner_name} onChange={set("owner_name")} className="input-base w-full" placeholder="John Smith" />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">Owner Email</label>
+              <input type="email" value={form.owner_email} onChange={set("owner_email")} className="input-base w-full" placeholder="owner@company.co.za" />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">WhatsApp (+27…)</label>
+              <input value={form.owner_whatsapp} onChange={set("owner_whatsapp")} className="input-base w-full" placeholder="+27821234567" />
+            </div>
+          </div>
+
+          <p className="text-xs text-zinc-500 uppercase tracking-wider pt-2">Bookkeeper Contact</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">Bookkeeper Name</label>
+              <input value={form.bookkeeper_name} onChange={set("bookkeeper_name")} className="input-base w-full" placeholder="Jane Doe" />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">Bookkeeper Email</label>
+              <input type="email" value={form.bookkeeper_email} onChange={set("bookkeeper_email")} className="input-base w-full" placeholder="bookkeeper@company.co.za" />
+            </div>
+          </div>
+
+          {error && <p className="text-red-400 text-xs">{error}</p>}
+          <div className="flex gap-3 pt-1">
+            <button type="submit" disabled={saving} className="btn-primary">
+              {saving ? "Creating…" : "Create Client"}
+            </button>
+            <button type="button" onClick={() => setOpen(false)} className="btn-secondary">
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
+// ── Companies tab ──────────────────────────────────────────────────────────
+
+function CompaniesTab({ companies, onRefresh }: { companies: Company[]; onRefresh: () => void }) {
+  const PLAN_COLOUR: Record<string, string> = {
+    starter: "text-zinc-400",
+    professional: "text-brand-teal",
+    premium: "text-brand-cyan",
+  };
+
+  return (
+    <div className="space-y-4">
+      <NewCompanyForm onCreated={onRefresh} />
+
+      {companies.length === 0 ? (
+        <p className="text-zinc-500 text-sm">No clients yet — add one above.</p>
+      ) : (
+        <div className="card overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-surface-border text-xs text-zinc-500 uppercase tracking-wider">
+                <th className="p-4 text-left font-medium">Company</th>
+                <th className="p-4 text-left font-medium">Owner</th>
+                <th className="p-4 text-left font-medium">Plan</th>
+                <th className="p-4 text-left font-medium">Source</th>
+                <th className="p-4 text-left font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {companies.map((c) => (
+                <tr key={c.id} className="border-b border-surface-border/40 hover:bg-surface-card/40 transition-colors">
+                  <td className="p-4">
+                    <p className="font-medium">{c.name}</p>
+                    {c.trading_name && c.trading_name !== c.name && (
+                      <p className="text-xs text-zinc-500">{c.trading_name}</p>
+                    )}
+                  </td>
+                  <td className="p-4">
+                    <p>{c.owner_name ?? "—"}</p>
+                    <p className="text-xs text-zinc-500">{c.owner_email ?? ""}</p>
+                  </td>
+                  <td className="p-4">
+                    <span className={`font-medium capitalize ${PLAN_COLOUR[c.plan] ?? ""}`}>
+                      {c.plan}
+                    </span>
+                  </td>
+                  <td className="p-4">
+                    <span className={`text-xs font-medium ${
+                      c.data_source === "evolution" ? "text-brand-teal" : "text-zinc-400"
+                    }`}>
+                      {c.data_source === "evolution" ? "Evolution" : "Partner"}
+                    </span>
+                  </td>
+                  <td className="p-4">
+                    <span className={`text-xs font-medium ${c.active ? "text-emerald-400" : "text-red-400"}`}>
+                      {c.active ? "Active" : "Inactive"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Users tab ──────────────────────────────────────────────────────────────
+
+interface UserRow {
+  id: string;
+  email: string;
+  full_name: string | null;
+  role: string;
+  company_id: string | null;
+  active: boolean;
+}
+
+const BLANK_USER = { email: "", password: "", full_name: "", role: "owner", company_id: "" };
+
+function UsersTab({ companies }: { companies: Company[] }) {
+  const [users, setUsers] = useState<UserRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState(BLANK_USER);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [showPw, setShowPw] = useState(false);
+
+  const load = () =>
+    axios.get("/api/users", { withCredentials: true })
+      .then((r) => setUsers(r.data))
+      .finally(() => setLoading(false));
+
+  useEffect(() => { load(); }, []);
+
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm((p) => ({ ...p, [k]: e.target.value }));
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const payload = { ...form, company_id: form.company_id || null };
+      await axios.post("/api/users", payload, { withCredentials: true });
+      setForm(BLANK_USER);
+      setOpen(false);
+      load();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setError(msg || "Failed to create user.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteUser = async (id: string, email: string) => {
+    if (!confirm(`Delete user ${email}? This cannot be undone.`)) return;
+    await axios.delete(`/api/users/${id}`, { withCredentials: true });
+    load();
+  };
+
+  const companyName = (id: string | null) =>
+    companies.find((c) => c.id === id)?.name ?? "—";
+
+  const ROLE_COLOUR: Record<string, string> = {
+    admin: "text-brand-teal",
+    owner: "text-white",
+    bookkeeper: "text-zinc-300",
+    viewer: "text-zinc-500",
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* New user form */}
+      <div className="card">
+        <button
+          onClick={() => setOpen((o) => !o)}
+          className="w-full flex items-center justify-between p-5 text-left"
+        >
+          <span className="font-heading text-sm font-bold text-brand-teal uppercase tracking-wider">
+            + Add New User
+          </span>
+          <span className="text-zinc-500 text-sm">{open ? "▲" : "▼"}</span>
+        </button>
+
+        {open && (
+          <form onSubmit={handleSubmit} className="px-5 pb-5 space-y-4 border-t border-surface-border pt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-zinc-400 mb-1">Email *</label>
+                <input required type="email" value={form.email} onChange={set("email")} className="input-base w-full" placeholder="owner@client.co.za" />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-400 mb-1">Full Name</label>
+                <input value={form.full_name} onChange={set("full_name")} className="input-base w-full" placeholder="John Smith" />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-400 mb-1">Password *</label>
+                <div className="relative">
+                  <input
+                    required
+                    type={showPw ? "text" : "password"}
+                    value={form.password}
+                    onChange={set("password")}
+                    className="input-base w-full pr-16"
+                    placeholder="Min. 8 characters"
+                    minLength={8}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPw((p) => !p)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-zinc-500 hover:text-white"
+                  >
+                    {showPw ? "Hide" : "Show"}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-400 mb-1">Role</label>
+                <select value={form.role} onChange={set("role")} className="input-base w-full">
+                  <option value="owner">Owner — sees reports &amp; dashboard</option>
+                  <option value="bookkeeper">Bookkeeper — uploads files</option>
+                  <option value="viewer">Viewer — read only</option>
+                  <option value="admin">Admin — full access (Numbers10 only)</option>
+                </select>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs text-zinc-400 mb-1">Company</label>
+                <select value={form.company_id} onChange={set("company_id")} className="input-base w-full">
+                  <option value="">— No company (admin account) —</option>
+                  {companies.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            {error && <p className="text-red-400 text-xs">{error}</p>}
+            <div className="flex gap-3 pt-1">
+              <button type="submit" disabled={saving} className="btn-primary">
+                {saving ? "Creating…" : "Create User"}
+              </button>
+              <button type="button" onClick={() => setOpen(false)} className="btn-secondary">
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+
+      {/* Users list */}
+      {loading ? (
+        <p className="text-zinc-500 text-sm">Loading users…</p>
+      ) : users.length === 0 ? (
+        <p className="text-zinc-500 text-sm">No users yet.</p>
+      ) : (
+        <div className="card overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-surface-border text-xs text-zinc-500 uppercase tracking-wider">
+                <th className="p-4 text-left font-medium">User</th>
+                <th className="p-4 text-left font-medium">Role</th>
+                <th className="p-4 text-left font-medium">Company</th>
+                <th className="p-4 text-left font-medium">Status</th>
+                <th className="p-4 text-left font-medium"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((u) => (
+                <tr key={u.id} className="border-b border-surface-border/40 hover:bg-surface-card/40 transition-colors">
+                  <td className="p-4">
+                    <p className="font-medium">{u.full_name ?? u.email}</p>
+                    {u.full_name && <p className="text-xs text-zinc-500">{u.email}</p>}
+                  </td>
+                  <td className="p-4">
+                    <span className={`capitalize font-medium ${ROLE_COLOUR[u.role] ?? ""}`}>{u.role}</span>
+                  </td>
+                  <td className="p-4 text-zinc-400">{companyName(u.company_id)}</td>
+                  <td className="p-4">
+                    <span className={`text-xs font-medium ${u.active ? "text-emerald-400" : "text-red-400"}`}>
+                      {u.active ? "Active" : "Inactive"}
+                    </span>
+                  </td>
+                  <td className="p-4">
+                    <button
+                      onClick={() => deleteUser(u.id, u.email)}
+                      className="text-xs text-zinc-600 hover:text-red-400 transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Agents tab ─────────────────────────────────────────────────────────────
 
 function AgentsTab({ companies }: { companies: Company[] }) {
@@ -29,7 +420,6 @@ function AgentsTab({ companies }: { companies: Company[] }) {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
 
-  // New agent form
   const [form, setForm] = useState({ company_id: "", server_name: "", db_name: "" });
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
@@ -75,7 +465,6 @@ function AgentsTab({ companies }: { companies: Company[] }) {
 
   return (
     <div className="space-y-6">
-      {/* Provision new agent */}
       <div className="card p-5">
         <h2 className="font-heading text-sm font-bold text-brand-teal uppercase tracking-wider mb-4">
           Provision New Agent
@@ -122,7 +511,6 @@ function AgentsTab({ companies }: { companies: Company[] }) {
         {createError && <p className="text-red-400 text-xs mt-2">{createError}</p>}
       </div>
 
-      {/* Agent list */}
       {loading ? (
         <p className="text-zinc-500 text-sm">Loading agents…</p>
       ) : agents.length === 0 ? (
@@ -159,8 +547,6 @@ function AgentsTab({ companies }: { companies: Company[] }) {
                   )}
                 </div>
               </div>
-
-              {/* Install command */}
               <div className="bg-black rounded-md p-3 flex items-start justify-between gap-3">
                 <code className="text-xs text-zinc-300 break-all font-mono leading-relaxed">
                   {a.install_command}
@@ -180,79 +566,21 @@ function AgentsTab({ companies }: { companies: Company[] }) {
   );
 }
 
-// ── Companies tab ──────────────────────────────────────────────────────────
-
-function CompaniesTab({ companies }: { companies: Company[] }) {
-  const PLAN_COLOUR: Record<string, string> = {
-    starter: "text-zinc-400",
-    professional: "text-brand-teal",
-    premium: "text-brand-cyan",
-  };
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-surface-border text-xs text-zinc-500 uppercase tracking-wider">
-            <th className="pb-2 text-left font-medium">Company</th>
-            <th className="pb-2 text-left font-medium">Owner</th>
-            <th className="pb-2 text-left font-medium">Plan</th>
-            <th className="pb-2 text-left font-medium">Source</th>
-            <th className="pb-2 text-left font-medium">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {companies.map((c) => (
-            <tr key={c.id} className="border-b border-surface-border/40 hover:bg-surface-card/40 transition-colors">
-              <td className="py-3 pr-4">
-                <p className="font-medium">{c.name}</p>
-                {c.trading_name && c.trading_name !== c.name && (
-                  <p className="text-xs text-zinc-500">{c.trading_name}</p>
-                )}
-              </td>
-              <td className="py-3 pr-4">
-                <p>{c.owner_name ?? "—"}</p>
-                <p className="text-xs text-zinc-500">{c.owner_email ?? ""}</p>
-              </td>
-              <td className="py-3 pr-4">
-                <span className={`font-medium capitalize ${PLAN_COLOUR[c.plan] ?? ""}`}>
-                  {c.plan}
-                </span>
-              </td>
-              <td className="py-3 pr-4">
-                <span className={`text-xs font-medium ${
-                  c.data_source === "evolution" ? "text-brand-teal" : "text-zinc-400"
-                }`}>
-                  {c.data_source === "evolution" ? "Evolution" : "Partner"}
-                </span>
-              </td>
-              <td className="py-3">
-                <span className={`text-xs font-medium ${c.active ? "text-emerald-400" : "text-red-400"}`}>
-                  {c.active ? "Active" : "Inactive"}
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 // ── Admin page ─────────────────────────────────────────────────────────────
 
-type Tab = "companies" | "agents";
+type Tab = "companies" | "users" | "agents";
 
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>("companies");
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadCompanies = () =>
     axios.get("/api/companies", { withCredentials: true })
       .then((r) => setCompanies(r.data))
       .finally(() => setLoading(false));
-  }, []);
+
+  useEffect(() => { loadCompanies(); }, []);
 
   const activeCount = companies.filter((c) => c.active).length;
   const evolutionCount = companies.filter((c) => c.data_source === "evolution").length;
@@ -263,6 +591,12 @@ export default function AdminPage() {
       return sum + (prices[c.plan] ?? 0);
     }, 0);
 
+  const TAB_LABELS: Record<Tab, string> = {
+    companies: "Clients",
+    users: "Users",
+    agents: "Evolution Agents",
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -270,15 +604,11 @@ export default function AdminPage() {
         <p className="text-zinc-400 text-sm mt-1">Numbers10 — all Ghost CFO clients</p>
       </div>
 
-      {/* MRR overview */}
       <div className="grid grid-cols-3 gap-4">
         {[
           { label: "Active Clients", value: activeCount },
           { label: "Evolution Agents", value: evolutionCount },
-          {
-            label: "Est. MRR",
-            value: `R${mrr.toLocaleString("en-ZA")}`,
-          },
+          { label: "Est. MRR", value: `R${mrr.toLocaleString("en-ZA")}` },
         ].map((tile) => (
           <div key={tile.label} className="card p-4">
             <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">{tile.label}</p>
@@ -287,19 +617,18 @@ export default function AdminPage() {
         ))}
       </div>
 
-      {/* Tab bar */}
       <div className="flex gap-2 border-b border-surface-border">
-        {(["companies", "agents"] as Tab[]).map((t) => (
+        {(["companies", "users", "agents"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors capitalize ${
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
               tab === t
                 ? "border-brand-teal text-white"
                 : "border-transparent text-zinc-500 hover:text-white"
             }`}
           >
-            {t === "agents" ? "Evolution Agents" : "Companies"}
+            {TAB_LABELS[t]}
           </button>
         ))}
       </div>
@@ -307,7 +636,9 @@ export default function AdminPage() {
       {loading ? (
         <p className="text-zinc-500 text-sm">Loading…</p>
       ) : tab === "companies" ? (
-        <CompaniesTab companies={companies} />
+        <CompaniesTab companies={companies} onRefresh={loadCompanies} />
+      ) : tab === "users" ? (
+        <UsersTab companies={companies} />
       ) : (
         <AgentsTab companies={companies} />
       )}
