@@ -38,7 +38,7 @@ def draw_icon(size: int) -> Image.Image:
 
     cx, cy = size // 2, size // 2
 
-    # --- Gradient circle background (teal → cyan, top-left to bottom-right) ---
+    # --- Gradient circle background (teal -> cyan, top-left to bottom-right) ---
     for y in range(size):
         for x in range(size):
             dx, dy = x - cx, y - cy
@@ -111,7 +111,7 @@ def main() -> None:
     for s in SIZES:
         frame = draw_icon(s)
         frames.append(frame)
-        print(f"  {s}x{s} ✓")
+        print(f"  {s}x{s} OK")
 
     # Save as multi-resolution ICO
     frames[0].save(
@@ -120,12 +120,12 @@ def main() -> None:
         sizes=[(s, s) for s in SIZES],
         append_images=frames[1:],
     )
-    print(f"\nSaved → {OUT}")
+    print(f"\nSaved -> {OUT}")
 
     # Also save a 256px PNG for the Inno Setup installer banner
     png_out = Path(__file__).parent / "ghostcfo_256.png"
     frames[-1].save(png_out, format="PNG")
-    print(f"Saved → {png_out}")
+    print(f"Saved -> {png_out}")
 
 
 if __name__ == "__main__":

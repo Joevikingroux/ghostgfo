@@ -52,7 +52,7 @@ a = Analysis(
         # keep the .exe lean — these are not needed at runtime
         'tkinter', 'unittest', 'email', 'html', 'http.server',
         'xml', 'xmlrpc', 'pydoc', 'doctest', 'difflib',
-        'distutils', 'setuptools', 'pip',
+        'setuptools', 'pip',
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,

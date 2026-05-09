@@ -73,3 +73,10 @@ Thumbs.db
 *.p12
 *.pfx
 secrets/
+
+# Agent build artifacts
+agent/dist/
+agent/build/
+agent/installer/Output/
+agent/assets/ghostcfo.ico
+agent/assets/ghostcfo_256.png

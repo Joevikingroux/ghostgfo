@@ -108,10 +108,6 @@ begin
   if Result = '' then Result := 'https://ghostcfo.numbers10.co.za';
 end;
 
-; ---------------------------------------------------------------------------
-; Files
-; ---------------------------------------------------------------------------
-
 [Files]
 ; Main executable (compiled by PyInstaller)
 Source: "..\dist\{#ExeName}"; DestDir: "{#InstallDir}"; Flags: ignoreversion
