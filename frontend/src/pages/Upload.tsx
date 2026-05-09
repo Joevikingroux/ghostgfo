@@ -6,6 +6,241 @@ import UploadDropzone from "@/components/UploadDropzone";
 const CURRENT_YEAR = new Date().getFullYear();
 const CURRENT_MONTH = new Date().getMonth() + 1;
 
+// ── How-to guide component ─────────────────────────────────────────────────
+
+interface Step {
+  action: string;
+  detail?: string;
+}
+
+interface ReportGuide {
+  name: string;
+  steps: Step[];
+}
+
+function HowToGuide({ guides, software }: { guides: ReportGuide[]; software: string }) {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+
+  return (
+    <div className="rounded-lg border border-surface-border bg-black/30">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left"
+      >
+        <span className="flex items-center gap-2 text-xs font-medium text-zinc-400">
+          <span className="text-brand-teal">?</span>
+          How to export these files from {software}
+        </span>
+        <span className="text-zinc-600 text-xs">{open ? "▲ Hide" : "▼ Show"}</span>
+      </button>
+
+      {open && (
+        <div className="border-t border-surface-border">
+          {/* Report selector tabs */}
+          <div className="flex overflow-x-auto gap-1 px-4 pt-3 pb-0">
+            {guides.map((g, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setActive(i)}
+                className={`shrink-0 px-3 py-1.5 rounded-t text-xs font-medium border-b-2 transition-colors ${
+                  active === i
+                    ? "border-brand-teal text-white bg-surface-card"
+                    : "border-transparent text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                {g.name}
+              </button>
+            ))}
+          </div>
+
+          {/* Steps */}
+          <div className="px-4 py-4 space-y-2">
+            {guides[active].steps.map((step, i) => (
+              <div key={i} className="flex gap-3">
+                <span className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-surface-card border border-surface-border text-xs flex items-center justify-center text-brand-teal font-bold">
+                  {i + 1}
+                </span>
+                <div>
+                  <p className="text-sm text-zinc-200">{step.action}</p>
+                  {step.detail && (
+                    <p className="text-xs text-zinc-500 mt-0.5">{step.detail}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+            <p className="text-xs text-zinc-600 pt-2 border-t border-surface-border mt-3">
+              Tip: Save the file anywhere on your computer, then drag it into the upload box below.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Guide data ─────────────────────────────────────────────────────────────
+
+const ACCOUNTING_GUIDES: ReportGuide[] = [
+  {
+    name: "Income Statement",
+    steps: [
+      { action: "Open Sage Pastel Partner." },
+      {
+        action: "Go to View → General Ledger → Income Statement.",
+        detail: "In older versions this may be under Reports → Financial Statements → Income Statement.",
+      },
+      {
+        action: "Set the period to the month you are reporting on.",
+        detail: "Use the From Period and To Period dropdowns. Both should be set to the same month-end period.",
+      },
+      {
+        action: "Click Print or Preview to open the report.",
+      },
+      {
+        action: "In the report window, click the Export button (or right-click the grid and choose Export to Excel).",
+        detail: "Select Microsoft Excel (.xlsx) or CSV. Both formats are accepted.",
+      },
+      { action: "Save the file to your computer and upload it here." },
+    ],
+  },
+  {
+    name: "Balance Sheet",
+    steps: [
+      { action: "Open Sage Pastel Partner." },
+      {
+        action: "Go to View → General Ledger → Balance Sheet.",
+        detail: "In older versions: Reports → Financial Statements → Balance Sheet.",
+      },
+      {
+        action: "Set the period to the last period of the month you are reporting on.",
+      },
+      { action: "Click Print or Preview to open the report." },
+      {
+        action: "Click Export (or right-click → Export to Excel).",
+        detail: "Select Excel or CSV format.",
+      },
+      { action: "Save the file and upload it here." },
+    ],
+  },
+  {
+    name: "Debtor Age Analysis",
+    steps: [
+      { action: "Open Sage Pastel Partner." },
+      {
+        action: "Go to View → Customers → Age Analysis.",
+        detail: "This may also be under Reports → Debtors → Age Analysis depending on your version.",
+      },
+      {
+        action: "Set the date to the last day of the reporting month.",
+        detail: "For example, for October 2025 set the date to 31 October 2025.",
+      },
+      {
+        action: "Make sure to select All Customers (or leave the customer filter blank) so all debtors are included.",
+      },
+      { action: "Click Print or Preview to open the report." },
+      {
+        action: "Click Export and select CSV or Excel.",
+      },
+      { action: "Save the file and upload it here." },
+    ],
+  },
+  {
+    name: "Creditor Age Analysis",
+    steps: [
+      { action: "Open Sage Pastel Partner." },
+      {
+        action: "Go to View → Suppliers → Age Analysis.",
+        detail: "May also appear as Reports → Creditors → Age Analysis.",
+      },
+      {
+        action: "Set the date to the last day of the reporting month.",
+      },
+      { action: "Leave the supplier filter blank to include all creditors." },
+      { action: "Click Print or Preview." },
+      {
+        action: "Click Export → select CSV or Excel.",
+      },
+      { action: "Save the file and upload it here." },
+    ],
+  },
+];
+
+const PAYROLL_GUIDES: ReportGuide[] = [
+  {
+    name: "Payroll Summary",
+    steps: [
+      { action: "Open Sage Pastel Payroll." },
+      {
+        action: "Go to Reports → Payroll Reports → Payroll Summary.",
+        detail: "In some versions this is under Reports → Pay Advice Reports or Reports → Summary Reports.",
+      },
+      {
+        action: "Select the payroll period for the month you are reporting.",
+        detail: "If you run monthly payroll, select the single period. If weekly, include all periods in the month.",
+      },
+      {
+        action: "Leave the employee filter set to All Employees.",
+      },
+      { action: "Click Print or Preview." },
+      {
+        action: "Click the Export icon and choose Excel (.xlsx) or CSV.",
+        detail: "The export icon usually looks like a floppy disk or spreadsheet icon at the top of the report window.",
+      },
+      { action: "Save the file and upload it here." },
+    ],
+  },
+  {
+    name: "Employee Cost Report",
+    steps: [
+      { action: "Open Sage Pastel Payroll." },
+      {
+        action: "Go to Reports → Payroll Reports → Employee Cost Report.",
+        detail: "This may also appear as Cost to Company Report or Employer Cost Report in some versions.",
+      },
+      {
+        action: "Select the payroll period for the reporting month.",
+      },
+      {
+        action: "Ensure the report includes employer contributions (UIF, SDL, medical aid if applicable).",
+        detail: "These are the costs above the employee's gross salary that show the true cost to the business.",
+      },
+      { action: "Click Print or Preview." },
+      { action: "Click Export → select Excel or CSV." },
+      { action: "Save the file and upload it here." },
+    ],
+  },
+  {
+    name: "Leave Liability",
+    steps: [
+      { action: "Open Sage Pastel Payroll." },
+      {
+        action: "Go to Reports → Leave Reports → Leave Liability Report.",
+        detail: "This may be listed as Leave Balances, Leave Provision, or Leave Accrual in some versions.",
+      },
+      {
+        action: "Set the date to the last day of the reporting month.",
+        detail: "This tells the system to calculate how many days each employee has accumulated up to that date.",
+      },
+      {
+        action: "Select Annual Leave as the leave type (or leave the filter on All to include all leave types).",
+      },
+      {
+        action: "Include all active employees — do not filter by department unless instructed.",
+      },
+      { action: "Click Print or Preview." },
+      {
+        action: "Click Export → select Excel or CSV.",
+      },
+      { action: "Save the file and upload it here." },
+    ],
+  },
+];
+
+// ── Main page ──────────────────────────────────────────────────────────────
+
 export default function UploadPage() {
   const navigate = useNavigate();
   const [month, setMonth] = useState(CURRENT_MONTH);
@@ -76,8 +311,8 @@ export default function UploadPage() {
       <div>
         <h1 className="font-heading text-2xl font-bold">Upload Monthly Files</h1>
         <p className="text-zinc-400 text-sm mt-1">
-          Upload your Pastel Partner exports for the month. The three accounting
-          files are required; payroll files are optional but recommended.
+          Export your reports from Sage Pastel and upload them here. The three
+          accounting files are required; payroll files are optional but recommended.
         </p>
       </div>
 
@@ -116,9 +351,18 @@ export default function UploadPage() {
 
         {/* Accounting files */}
         <div className="card p-5 space-y-5">
-          <h2 className="font-heading text-sm font-bold text-brand-teal uppercase tracking-wider">
-            Accounting Exports <span className="text-zinc-500 font-normal normal-case">(required)</span>
-          </h2>
+          <div>
+            <h2 className="font-heading text-sm font-bold text-brand-teal uppercase tracking-wider">
+              Accounting Exports{" "}
+              <span className="text-zinc-500 font-normal normal-case">(required)</span>
+            </h2>
+            <p className="text-xs text-zinc-500 mt-1">
+              Export these four reports from Sage Pastel Partner at month end.
+            </p>
+          </div>
+
+          <HowToGuide guides={ACCOUNTING_GUIDES} software="Sage Pastel Partner" />
+
           <UploadDropzone
             label="Income Statement"
             description="Monthly income statement — all revenue and expense lines"
@@ -142,7 +386,7 @@ export default function UploadPage() {
           />
           <UploadDropzone
             label="Creditor Age Analysis"
-            description="List of suppliers you owe money to (optional)"
+            description="List of suppliers you owe money to (optional but recommended)"
             file={files.creditors_age}
             onFile={setFile("creditors_age")}
           />
@@ -152,13 +396,18 @@ export default function UploadPage() {
         <div className="card p-5 space-y-5">
           <div>
             <h2 className="font-heading text-sm font-bold text-brand-teal uppercase tracking-wider">
-              Payroll Exports <span className="text-zinc-500 font-normal normal-case">(recommended)</span>
+              Payroll Exports{" "}
+              <span className="text-zinc-500 font-normal normal-case">(recommended)</span>
             </h2>
             <p className="text-xs text-zinc-500 mt-1">
-              Adding payroll files enables staff cost analysis, leave liability
-              warnings, and payroll cash cover checks in your report.
+              Export these reports from Sage Pastel Payroll at month end. Adding
+              payroll data enables staff cost analysis, leave liability warnings,
+              and payroll cash cover checks in your report.
             </p>
           </div>
+
+          <HowToGuide guides={PAYROLL_GUIDES} software="Sage Pastel Payroll" />
+
           <UploadDropzone
             label="Payroll Summary"
             description="Per-employee gross pay, PAYE, UIF, SDL, and net pay"
@@ -179,13 +428,11 @@ export default function UploadPage() {
           />
         </div>
 
-        {error && (
-          <p className="text-red-400 text-sm">{error}</p>
-        )}
+        {error && <p className="text-red-400 text-sm">{error}</p>}
 
         <div className="flex items-center justify-between">
           <p className="text-xs text-zinc-500">
-            * Income statement, balance sheet, and debtor age are required
+            * Income statement, balance sheet, and debtor age analysis are required
           </p>
           <button
             type="submit"
