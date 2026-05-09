@@ -2,7 +2,7 @@
 
 Numbers10 VPS: Hetzner Ubuntu 24 LTS  
 Domain: `ghostcfo.numbers10.co.za`  
-Repo: `github.com/Joevikingroux/ghostcfo`
+Repo: `github.com/Joevikingroux/ghostgfo`
 
 ---
 
@@ -15,7 +15,7 @@ apt-get install -y nginx certbot python3-certbot-nginx
 
 # 2. Clone the repo
 mkdir -p /opt/ghostcfo && cd /opt/ghostcfo
-git clone https://github.com/Joevikingroux/ghostcfo.git .
+git clone https://github.com/Joevikingroux/ghostgfo.git .
 
 # 3. Create .env from the example
 cp .env.example .env

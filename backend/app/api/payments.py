@@ -50,12 +50,8 @@ PAYFAST_URL = (
 # Signature helper
 # ---------------------------------------------------------------------------
 
-def _sign(data: dict[str, Any]) -> str:
-    """Generate MD5 signature matching PayFast's PHP urlencode behavior.
-
-    Fields must be in insertion order (same order as the HTML form / POST body).
-    PayFast does NOT sort — it processes fields in the order it receives them.
-    """
+def _build_param_string(data: dict[str, Any], include_passphrase: bool = True) -> str:
+    """Build the raw param string PayFast expects (before MD5)."""
     parts = []
     for k, v in data.items():
         if k == "signature":
@@ -65,8 +61,15 @@ def _sign(data: dict[str, Any]) -> str:
             continue
         parts.append(f"{k}={urllib.parse.quote_plus(val)}")
     param_string = "&".join(parts)
-    if settings.payfast_passphrase:
+    if include_passphrase and settings.payfast_passphrase:
         param_string += "&passphrase=" + urllib.parse.quote_plus(settings.payfast_passphrase.strip())
+    return param_string
+
+
+def _sign(data: dict[str, Any]) -> str:
+    """Generate MD5 signature matching PayFast's PHP urlencode behavior."""
+    param_string = _build_param_string(data)
+    log.debug("payfast.signing param_string=%s", param_string)
     return hashlib.md5(param_string.encode()).hexdigest()
 
 
@@ -142,7 +145,7 @@ def initiate_payment(body: InitiateRequest, db: Session = Depends(get_db)) -> In
         "merchant_key": settings.payfast_merchant_key,
         "return_url": f"{settings.base_url}/payments/success",
         "cancel_url": f"{settings.base_url}/payments/cancel",
-        "notify_url": f"{settings.base_url}/api/payments/notify",
+        "notify_url": f"{settings.base_url}/payments/notify",
         "name_first": body.owner_name.split()[0] if body.owner_name else "",
         "name_last": " ".join(body.owner_name.split()[1:]) if body.owner_name and len(body.owner_name.split()) > 1 else "",
         "email_address": body.email,
@@ -271,6 +274,49 @@ def _send_welcome_email(company: Any, user: Any) -> None:
 # ---------------------------------------------------------------------------
 # Success / cancel redirects (these are browser redirects from PayFast)
 # ---------------------------------------------------------------------------
+
+@router.get("/config-test")
+def config_test() -> dict:
+    """Admin debug: verify PayFast config and expose test param string for signature comparison."""
+    test_fields: dict[str, str] = {
+        "merchant_id": settings.payfast_merchant_id or "NOT_SET",
+        "merchant_key": settings.payfast_merchant_key or "NOT_SET",
+        "return_url": f"{settings.base_url}/payments/success",
+        "cancel_url": f"{settings.base_url}/payments/cancel",
+        "notify_url": f"{settings.base_url}/payments/notify",
+        "name_first": "Test",
+        "name_last": "User",
+        "email_address": "test@ghostcfo.co.za",
+        "m_payment_id": "00000000-0000-0000-0000-000000000001",
+        "amount": "500.00",
+        "item_name": "Ghost CFO Starter — R500/month",
+        "item_description": "Monthly Ghost CFO subscription — Test Company",
+        "subscription_type": "1",
+        "billing_date": date.today().isoformat(),
+        "recurring_amount": "500.00",
+        "frequency": "3",
+        "cycles": "0",
+        "custom_str1": "starter",
+        "custom_str2": "00000000-0000-0000-0000-000000000001",
+    }
+    param_no_passphrase = _build_param_string(test_fields, include_passphrase=False)
+    param_with_passphrase = _build_param_string(test_fields, include_passphrase=True)
+    return {
+        "sandbox": settings.payfast_sandbox,
+        "payfast_url": PAYFAST_URL,
+        "merchant_id_set": bool(settings.payfast_merchant_id),
+        "merchant_key_set": bool(settings.payfast_merchant_key),
+        "passphrase_set": bool(settings.payfast_passphrase),
+        "passphrase_length": len(settings.payfast_passphrase) if settings.payfast_passphrase else 0,
+        "param_string_without_passphrase": param_no_passphrase,
+        "param_string_with_passphrase": param_with_passphrase,
+        "md5_signature": hashlib.md5(param_with_passphrase.encode()).hexdigest(),
+        "instructions": (
+            "Paste 'param_string_without_passphrase' into https://sandbox.payfast.co.za/tools/signature_tester "
+            "with your passphrase and verify the MD5 matches 'md5_signature'."
+        ),
+    }
+
 
 @router.get("/success")
 def payment_success() -> RedirectResponse:
