@@ -49,7 +49,11 @@ def _save_config(cfg: dict) -> None:
         json.dump(cfg, fh, indent=2)
 
 
-def _run_sync(cfg: dict) -> None:
+def _run_sync(
+    cfg: dict,
+    period_month: int | None = None,
+    period_year: int | None = None,
+) -> None:
     log.info("=== Ghost CFO Agent — sync starting ===")
     server = cfg["sql_server"]
     db = cfg["sql_db"]
@@ -57,15 +61,19 @@ def _run_sync(cfg: dict) -> None:
     encryption_key = cfg["encryption_key"]
     base_url = cfg.get("base_url", "https://ghostcfo.numbers10.co.za")
 
+    if period_month and period_year:
+        log.info("Target period: %02d/%d (manual override)", period_month, period_year)
+    else:
+        log.info("Target period: previous month (automatic)")
+
     log.info("Connecting to Pastel Evolution: %s / %s", server, db)
     with evolution_db.connect(server=server, database=db) as conn:
         log.info("Connection OK — extracting financial data…")
-        data = extract(conn)
+        data = extract(conn, period_month=period_month, period_year=period_year)
 
     log.info(
-        "Extraction complete — period %d/%d, %d income rows",
+        "Extraction complete — period %02d/%d",
         data["period_month"], data["period_year"],
-        len(data.get("income_totals", {})),
     )
 
     log.info("Encrypting payload…")
@@ -89,17 +97,28 @@ def cli(ctx: click.Context) -> None:
 
 
 @cli.command()
-def run() -> None:
-    """Run a single sync immediately."""
+@click.option("--month", type=click.IntRange(1, 12), default=None,
+              help="Month to pull (1-12). Defaults to previous month.")
+@click.option("--year", type=click.IntRange(2000, 2099), default=None,
+              help="Year to pull, e.g. 2026. Defaults to current/previous year.")
+def run(month: int | None, year: int | None) -> None:
+    """Run a single sync immediately.
+
+    Examples:
+        GhostCFOAgent.exe run                        # pulls previous month automatically
+        GhostCFOAgent.exe run --month 3 --year 2026  # pulls March 2026 specifically
+    """
+    if (month is None) != (year is None):
+        raise click.UsageError("Provide both --month and --year, or neither.")
     cfg = _load_config()
-    _run_sync(cfg)
+    _run_sync(cfg, period_month=month, period_year=year)
 
 
 @cli.command()
 def service() -> None:
     """Entry point called by NSSM / the Windows service wrapper on schedule."""
     cfg = _load_config()
-    _run_sync(cfg)
+    _run_sync(cfg)  # always pulls previous month automatically
 
 
 @cli.command()

@@ -76,10 +76,10 @@ def connect(
         conn.close()
 
 
-def run_query(conn: Any, sql: str) -> list[dict[str, Any]]:
+def run_query(conn: Any, sql: str, params: tuple = ()) -> list[dict[str, Any]]:
     """Execute a SELECT and return rows as list of dicts."""
     cursor = conn.cursor()
-    cursor.execute(sql)
+    cursor.execute(sql, params)
     columns = [col[0] for col in cursor.description]
     rows = []
     for row in cursor.fetchall():

@@ -415,6 +415,70 @@ function UsersTab({ companies }: { companies: Company[] }) {
 
 // ── Agents tab ─────────────────────────────────────────────────────────────
 
+const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function ManualSyncGenerator({ agent }: { agent: EvolutionAgent }) {
+  const now = new Date();
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useState(now.getFullYear());
+  const [copied, setCopied] = useState(false);
+
+  const cmd = `GhostCFOAgent.exe run --month ${month} --year ${year}`;
+
+  const copy = () => {
+    navigator.clipboard.writeText(cmd).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    });
+  };
+
+  return (
+    <div className="border-t border-surface-border pt-3 space-y-2">
+      <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">Manual sync — pull a specific period</p>
+      <div className="flex flex-wrap items-end gap-3">
+        <div>
+          <label className="block text-xs text-zinc-600 mb-1">Month</label>
+          <select
+            value={month}
+            onChange={(e) => setMonth(Number(e.target.value))}
+            className="input-base text-xs py-1.5"
+          >
+            {MONTHS_SHORT.map((m, i) => (
+              <option key={i + 1} value={i + 1}>{m}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs text-zinc-600 mb-1">Year</label>
+          <input
+            type="number"
+            value={year}
+            onChange={(e) => setYear(Number(e.target.value))}
+            min={2020} max={2099}
+            className="input-base text-xs py-1.5 w-24"
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <label className="block text-xs text-zinc-600 mb-1">Run this command on {agent.company_name}'s server</label>
+          <div className="bg-black rounded-md px-3 py-2 flex items-center justify-between gap-3">
+            <code className="text-xs text-zinc-300 font-mono truncate">{cmd}</code>
+            <button
+              type="button"
+              onClick={copy}
+              className="shrink-0 text-xs px-2 py-1 rounded bg-surface-card text-zinc-400 hover:text-white transition-colors"
+            >
+              {copied ? "Copied!" : "Copy"}
+            </button>
+          </div>
+        </div>
+      </div>
+      <p className="text-xs text-zinc-600">
+        Log file on client's server: <code className="text-zinc-400">C:\GhostCFO\agent.log</code>
+      </p>
+    </div>
+  );
+}
+
 function AgentsTab({ companies }: { companies: Company[] }) {
   const [agents, setAgents] = useState<EvolutionAgent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -547,17 +611,21 @@ function AgentsTab({ companies }: { companies: Company[] }) {
                   )}
                 </div>
               </div>
-              <div className="bg-black rounded-md p-3 flex items-start justify-between gap-3">
-                <code className="text-xs text-zinc-300 break-all font-mono leading-relaxed">
-                  {a.install_command}
-                </code>
-                <button
-                  onClick={() => copyCommand(a.install_command, a.id)}
-                  className="shrink-0 text-xs px-2 py-1 rounded bg-surface-card text-zinc-400 hover:text-white transition-colors"
-                >
-                  {copied === a.id ? "Copied!" : "Copy"}
-                </button>
+              <div>
+                <p className="text-xs text-zinc-500 mb-1.5">Install command (run once on client's server)</p>
+                <div className="bg-black rounded-md p-3 flex items-start justify-between gap-3">
+                  <code className="text-xs text-zinc-300 break-all font-mono leading-relaxed">
+                    {a.install_command}
+                  </code>
+                  <button
+                    onClick={() => copyCommand(a.install_command, a.id)}
+                    className="shrink-0 text-xs px-2 py-1 rounded bg-surface-card text-zinc-400 hover:text-white transition-colors"
+                  >
+                    {copied === a.id ? "Copied!" : "Copy"}
+                  </button>
+                </div>
               </div>
+              <ManualSyncGenerator agent={a} />
             </div>
           ))}
         </div>
