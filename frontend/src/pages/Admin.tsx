@@ -153,7 +153,143 @@ function NewCompanyForm({ onCreated }: { onCreated: () => void }) {
 
 // ── Companies tab ──────────────────────────────────────────────────────────
 
+function EditCompanyForm({ company, onSaved, onCancel }: {
+  company: Company;
+  onSaved: () => void;
+  onCancel: () => void;
+}) {
+  const [form, setForm] = useState({
+    name: company.name ?? "",
+    trading_name: company.trading_name ?? "",
+    industry: company.industry ?? "",
+    owner_name: company.owner_name ?? "",
+    owner_email: company.owner_email ?? "",
+    owner_whatsapp: company.owner_whatsapp ?? "",
+    bookkeeper_name: company.bookkeeper_name ?? "",
+    bookkeeper_email: company.bookkeeper_email ?? "",
+    plan: company.plan ?? "starter",
+    data_source: company.data_source ?? "partner",
+    language: company.language ?? "en",
+    active: company.active,
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm((p) => ({ ...p, [k]: e.target.value }));
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      await axios.patch(`/api/companies/${company.id}`, form, { withCredentials: true });
+      onSaved();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setError(msg || "Failed to save changes.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="p-5 space-y-4 bg-surface-card/60 border-t border-brand-teal/30">
+      <p className="text-xs font-bold text-brand-teal uppercase tracking-wider">Editing: {company.name}</p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-xs text-zinc-400 mb-1">Company Name *</label>
+          <input required value={form.name} onChange={set("name")} className="input-base w-full" />
+        </div>
+        <div>
+          <label className="block text-xs text-zinc-400 mb-1">Trading Name</label>
+          <input value={form.trading_name} onChange={set("trading_name")} className="input-base w-full" />
+        </div>
+        <div>
+          <label className="block text-xs text-zinc-400 mb-1">Industry</label>
+          <input value={form.industry} onChange={set("industry")} className="input-base w-full" />
+        </div>
+        <div>
+          <label className="block text-xs text-zinc-400 mb-1">Plan</label>
+          <select value={form.plan} onChange={set("plan")} className="input-base w-full">
+            <option value="starter">Starter — R500/mo</option>
+            <option value="professional">Professional — R900/mo</option>
+            <option value="premium">Premium — R1,500/mo</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs text-zinc-400 mb-1">Data Source</label>
+          <select value={form.data_source} onChange={set("data_source")} className="input-base w-full">
+            <option value="partner">Pastel Partner (file upload)</option>
+            <option value="evolution">Pastel Evolution (SQL agent)</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs text-zinc-400 mb-1">Report Language</label>
+          <select value={form.language} onChange={set("language")} className="input-base w-full">
+            <option value="en">English</option>
+            <option value="af">Afrikaans</option>
+          </select>
+        </div>
+      </div>
+
+      <p className="text-xs text-zinc-500 uppercase tracking-wider pt-1">Owner Contact</p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-xs text-zinc-400 mb-1">Owner Name</label>
+          <input value={form.owner_name} onChange={set("owner_name")} className="input-base w-full" />
+        </div>
+        <div>
+          <label className="block text-xs text-zinc-400 mb-1">Owner Email</label>
+          <input type="email" value={form.owner_email} onChange={set("owner_email")} className="input-base w-full" />
+        </div>
+        <div>
+          <label className="block text-xs text-zinc-400 mb-1">WhatsApp (+27…)</label>
+          <input value={form.owner_whatsapp} onChange={set("owner_whatsapp")} className="input-base w-full" />
+        </div>
+      </div>
+
+      <p className="text-xs text-zinc-500 uppercase tracking-wider pt-1">Bookkeeper Contact</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs text-zinc-400 mb-1">Bookkeeper Name</label>
+          <input value={form.bookkeeper_name} onChange={set("bookkeeper_name")} className="input-base w-full" />
+        </div>
+        <div>
+          <label className="block text-xs text-zinc-400 mb-1">Bookkeeper Email</label>
+          <input type="email" value={form.bookkeeper_email} onChange={set("bookkeeper_email")} className="input-base w-full" />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4 pt-1">
+        <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={form.active}
+            onChange={(e) => setForm((p) => ({ ...p, active: e.target.checked }))}
+            className="w-4 h-4 accent-teal-400"
+          />
+          Active
+        </label>
+      </div>
+
+      {error && <p className="text-red-400 text-xs">{error}</p>}
+      <div className="flex gap-3">
+        <button type="submit" disabled={saving} className="btn-primary">
+          {saving ? "Saving…" : "Save Changes"}
+        </button>
+        <button type="button" onClick={onCancel} className="btn-secondary">
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function CompaniesTab({ companies, onRefresh }: { companies: Company[]; onRefresh: () => void }) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+
   const PLAN_COLOUR: Record<string, string> = {
     starter: "text-zinc-400",
     professional: "text-brand-teal",
@@ -192,43 +328,64 @@ function CompaniesTab({ companies, onRefresh }: { companies: Company[]; onRefres
             </thead>
             <tbody>
               {companies.map((c) => (
-                <tr key={c.id} className="border-b border-surface-border/40 hover:bg-surface-card/40 transition-colors">
-                  <td className="p-4">
-                    <p className="font-medium">{c.name}</p>
-                    {c.trading_name && c.trading_name !== c.name && (
-                      <p className="text-xs text-zinc-500">{c.trading_name}</p>
-                    )}
-                  </td>
-                  <td className="p-4">
-                    <p>{c.owner_name ?? "—"}</p>
-                    <p className="text-xs text-zinc-500">{c.owner_email ?? ""}</p>
-                  </td>
-                  <td className="p-4">
-                    <span className={`font-medium capitalize ${PLAN_COLOUR[c.plan] ?? ""}`}>
-                      {c.plan}
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    <span className={`text-xs font-medium ${
-                      c.data_source === "evolution" ? "text-brand-teal" : "text-zinc-400"
-                    }`}>
-                      {c.data_source === "evolution" ? "Evolution" : "Partner"}
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    <span className={`text-xs font-medium ${c.active ? "text-emerald-400" : "text-red-400"}`}>
-                      {c.active ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    <button
-                      onClick={() => deleteCompany(c.id, c.name)}
-                      className="text-xs text-zinc-600 hover:text-red-400 transition-colors"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
+                <>
+                  <tr key={c.id} className="border-b border-surface-border/40 hover:bg-surface-card/40 transition-colors">
+                    <td className="p-4">
+                      <p className="font-medium">{c.name}</p>
+                      {c.trading_name && c.trading_name !== c.name && (
+                        <p className="text-xs text-zinc-500">{c.trading_name}</p>
+                      )}
+                    </td>
+                    <td className="p-4">
+                      <p>{c.owner_name ?? "—"}</p>
+                      <p className="text-xs text-zinc-500">{c.owner_email ?? ""}</p>
+                    </td>
+                    <td className="p-4">
+                      <span className={`font-medium capitalize ${PLAN_COLOUR[c.plan] ?? ""}`}>
+                        {c.plan}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <span className={`text-xs font-medium ${
+                        c.data_source === "evolution" ? "text-brand-teal" : "text-zinc-400"
+                      }`}>
+                        {c.data_source === "evolution" ? "Evolution" : "Partner"}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <span className={`text-xs font-medium ${c.active ? "text-emerald-400" : "text-red-400"}`}>
+                        {c.active ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => setEditingId(editingId === c.id ? null : c.id)}
+                          className={`text-xs transition-colors ${editingId === c.id ? "text-brand-teal" : "text-zinc-500 hover:text-white"}`}
+                        >
+                          {editingId === c.id ? "Cancel" : "Edit"}
+                        </button>
+                        <button
+                          onClick={() => deleteCompany(c.id, c.name)}
+                          className="text-xs text-zinc-600 hover:text-red-400 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {editingId === c.id && (
+                    <tr key={`${c.id}-edit`}>
+                      <td colSpan={6} className="p-0">
+                        <EditCompanyForm
+                          company={c}
+                          onSaved={() => { setEditingId(null); onRefresh(); }}
+                          onCancel={() => setEditingId(null)}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                </>
               ))}
             </tbody>
           </table>
