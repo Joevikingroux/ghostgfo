@@ -153,6 +153,13 @@ def uninstall() -> None:
 
 
 @cli.command()
+def tray() -> None:
+    """Run the system tray status icon (launched at Windows login by the installer)."""
+    from tray import run_tray
+    run_tray()
+
+
+@cli.command()
 def test_connection() -> None:
     """Test the SQL Server connection and print the number of GL transactions found."""
     cfg = _load_config()

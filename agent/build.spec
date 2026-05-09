@@ -12,7 +12,10 @@ a = Analysis(
     ['main.py'],
     pathex=['.'],
     binaries=[],
-    datas=[],
+    datas=[
+        # Pillow image plugins needed for tray icon rendering
+        ('assets/ghostcfo.ico', 'assets'),
+    ],
     hiddenimports=[
         # cryptography backends
         'cryptography.hazmat.primitives.ciphers.aead',
@@ -23,6 +26,12 @@ a = Analysis(
         'httpx._transports.default',
         # click
         'click',
+        # pystray + Pillow for tray icon
+        'pystray',
+        'PIL',
+        'PIL.Image',
+        'PIL.ImageDraw',
+        'PIL._imagingtk',
         # agent submodules
         'connector',
         'connector.evolution_db',
@@ -34,6 +43,7 @@ a = Analysis(
         'service',
         'service.installer',
         'service.scheduler',
+        'tray',
     ],
     hookspath=[],
     hooksconfig={},
@@ -73,5 +83,5 @@ exe = EXE(
     entitlements_file=None,
     # Windows-specific: embed version info and icon
     version='version_info.txt',    # optional — create separately for code-signing
-    icon=None,                     # add a .ico file here when available
+    icon='assets/ghostcfo.ico',
 )
