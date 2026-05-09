@@ -65,16 +65,17 @@ def create_upload(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    from sqlalchemy import select
+    from app.models.company import Company
+    from app.models.evolution_agent import EvolutionAgent
+
     if user.role not in {"bookkeeper", "owner", "admin"}:
         raise HTTPException(status_code=403, detail="Upload permission required")
     if not user.company_id:
         raise HTTPException(status_code=400, detail="User not associated with a company")
 
-    if not income_statement or not balance_sheet or not debtors_age:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="income_statement, balance_sheet, and debtors_age are required.",
-        )
+    company = db.get(Company, user.company_id)
+    is_evolution = company and company.data_source == "evolution"
 
     dest = settings.upload_dir / str(user.company_id) / f"{period_year}-{period_month:02d}"
 
@@ -85,6 +86,55 @@ def create_upload(
         period_year=period_year,
         status="pending",
     )
+
+    if is_evolution:
+        # Evolution clients: accounting data comes from the agent.
+        # Only payroll files are uploaded here.
+        if payroll_summary and payroll_summary.filename:
+            upload.payroll_summary_path = _save_upload(payroll_summary, dest, "payroll_summary")
+        if payroll_employee_cost and payroll_employee_cost.filename:
+            upload.payroll_employee_cost_path = _save_upload(
+                payroll_employee_cost, dest, "payroll_employee_cost"
+            )
+        if payroll_leave and payroll_leave.filename:
+            upload.payroll_leave_path = _save_upload(payroll_leave, dest, "payroll_leave")
+
+        db.add(upload)
+        db.commit()
+        db.refresh(upload)
+
+        # Signal the agent to pull accounting data for this period.
+        agent = db.execute(
+            select(EvolutionAgent).where(
+                EvolutionAgent.company_id == user.company_id,
+                EvolutionAgent.active == True,  # noqa: E712
+            )
+        ).scalar_one_or_none()
+
+        if agent:
+            agent.pending_sync_month = period_month
+            agent.pending_sync_year = period_year
+            db.commit()
+            log.info(
+                "upload.evolution.pending_sync_set",
+                upload_id=str(upload.id),
+                company_id=str(user.company_id),
+                period=f"{period_year}-{period_month:02d}",
+            )
+        else:
+            log.warning(
+                "upload.evolution.no_active_agent",
+                company_id=str(user.company_id),
+            )
+
+        return upload
+
+    # --- Partner clients: all accounting files required ---
+    if not income_statement or not balance_sheet or not debtors_age:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="income_statement, balance_sheet, and debtors_age are required.",
+        )
 
     upload.income_statement_path = _save_upload(income_statement, dest, "income_statement")
     upload.balance_sheet_path = _save_upload(balance_sheet, dest, "balance_sheet")
@@ -112,7 +162,6 @@ def create_upload(
         period=f"{period_year}-{period_month:02d}",
     )
 
-    # Kick off report generation in background
     from app.tasks.generate_report import generate_report_task
     generate_report_task.delay(str(upload.id))
 

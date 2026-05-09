@@ -4,6 +4,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
+import sqlalchemy as sa
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -27,6 +28,10 @@ class EvolutionAgent(Base, UUIDPK):
     last_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_sync_status: Mapped[str | None] = mapped_column(String(32))
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # Set when a bookkeeper submits payroll files and wants a report generated.
+    # Agent polls /status, sees these, runs a sync for that period, then clears them.
+    pending_sync_month: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
+    pending_sync_year: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

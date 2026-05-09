@@ -94,6 +94,10 @@ class StatusResponse(BaseModel):
     last_sync_at: datetime | None
     last_sync_status: str | None
     active: bool
+    # Non-null when a bookkeeper has submitted payroll files and is waiting
+    # for accounting data from this agent to complete the report.
+    pending_sync_month: int | None = None
+    pending_sync_year: int | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -107,12 +111,14 @@ def ingest(
     db: Session = Depends(get_db),
 ) -> IngestResponse:
     """Receive an encrypted financial snapshot from a client's Evolution agent."""
+    from sqlalchemy import select as sa_select
+    from app.models.upload import Upload
+
     agent = _get_agent(x_agent_key, db)
     company = agent.company
 
     log.info("Ingest request from company '%s' (agent %s)", company.name, agent.id)
 
-    # Decrypt
     encryption_key = settings.agent_encryption_key
     data = _decrypt_envelope(body.payload, encryption_key)
 
@@ -125,18 +131,40 @@ def ingest(
             detail="Payload missing period_month / period_year",
         )
 
-    # Kick off async report generation
+    # Check for a payroll-only upload that is waiting for this accounting data.
+    # This is set when an Evolution client's bookkeeper uploads payroll files
+    # via the portal and clicks "Generate Report".
+    waiting_upload = db.execute(
+        sa_select(Upload).where(
+            Upload.company_id == company.id,
+            Upload.period_month == period_month,
+            Upload.period_year == period_year,
+            Upload.status == "pending",
+        )
+    ).scalar_one_or_none()
+
+    if waiting_upload:
+        log.info(
+            "Found waiting payroll upload %s — merging with agent accounting data",
+            waiting_upload.id,
+        )
+        # Inject payroll file paths into the agent data so the pipeline can parse them
+        data["payroll_upload_id"] = str(waiting_upload.id)
+        waiting_upload.status = "processing"
+
+    # Clear the pending sync request now that the data has arrived
+    agent.pending_sync_month = None
+    agent.pending_sync_year = None
+    agent.last_sync_at = datetime.now(timezone.utc)
+    agent.last_sync_status = "accepted"
+    db.commit()
+
     task = generate_report_from_agent.delay(
         company_id=str(company.id),
         metrics_data=data,
         period_month=period_month,
         period_year=period_year,
     )
-
-    # Update agent sync record
-    agent.last_sync_at = datetime.now(timezone.utc)
-    agent.last_sync_status = "accepted"
-    db.commit()
 
     log.info(
         "Payload accepted for %s %d/%d — task %s",
@@ -154,7 +182,11 @@ def agent_status(
     x_agent_key: str = Header(alias="X-Agent-Key"),
     db: Session = Depends(get_db),
 ) -> StatusResponse:
-    """Health check — the agent polls this to confirm connectivity."""
+    """Health check + pending sync check.
+
+    The agent polls this endpoint. If pending_sync_month/year are set,
+    the agent must run a sync for that period immediately.
+    """
     agent = _get_agent(x_agent_key, db)
     return StatusResponse(
         agent_id=str(agent.id),
@@ -163,6 +195,8 @@ def agent_status(
         last_sync_at=agent.last_sync_at,
         last_sync_status=agent.last_sync_status,
         active=agent.active,
+        pending_sync_month=agent.pending_sync_month,
+        pending_sync_year=agent.pending_sync_year,
     )
 
 

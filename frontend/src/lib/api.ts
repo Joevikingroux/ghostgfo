@@ -27,6 +27,8 @@ export const getMe = () => client.get<User>("/auth/me");
 // ---- Companies ----
 export const getCompanies = () => client.get<Company[]>("/companies");
 
+export const getCompany = (id: string) => client.get<Company>(`/companies/${id}`);
+
 export const createCompany = (data: Partial<Company>) =>
   client.post<Company>("/companies", data);
 

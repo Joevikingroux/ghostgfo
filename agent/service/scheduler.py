@@ -1,51 +1,107 @@
-"""Lightweight fallback scheduler for environments where schtasks is unavailable.
+"""Monthly scheduler + hourly pending-sync poller for the Ghost CFO Agent.
+
+Two jobs run in parallel threads:
+  1. Monthly run — fires on the 1st of each month at 06:00, pulls previous month.
+  2. Hourly poll  — checks /api/agent/status every 60 minutes. If the portal has
+     set a pending sync request (bookkeeper uploaded payroll files and clicked
+     "Generate Report"), runs a sync for that specific period immediately.
 
 Run with:  GhostCFOAgent.exe scheduler
-
-This process stays resident and fires the sync on the 1st of each month at 06:00.
-Use Windows Task Scheduler (installer.py) in production — this is a fallback only.
 """
 from __future__ import annotations
 
 import datetime
 import logging
+import threading
 import time
+
+import httpx
 
 log = logging.getLogger(__name__)
 
+_POLL_INTERVAL_SECONDS = 60 * 60  # 1 hour
 
-def _next_run_dt() -> datetime.datetime:
-    """Return the datetime of the next 1st-of-month 06:00."""
+
+def _next_monthly_run() -> datetime.datetime:
     now = datetime.datetime.now()
-    # First of next month
     if now.month == 12:
         target = datetime.datetime(now.year + 1, 1, 1, 6, 0, 0)
     else:
         target = datetime.datetime(now.year, now.month + 1, 1, 6, 0, 0)
-    # If it's the 1st and we haven't passed 06:00 yet, run today
     if now.day == 1 and now.hour < 6:
         target = datetime.datetime(now.year, now.month, 1, 6, 0, 0)
     return target
 
 
-def run_scheduler() -> None:
-    """Block forever, sleeping until the next scheduled run."""
-    log.info("Ghost CFO Agent scheduler started (fallback mode).")
-    while True:
-        target = _next_run_dt()
-        wait_seconds = (target - datetime.datetime.now()).total_seconds()
-        log.info("Next sync scheduled for %s (in %.1f hours).",
-                 target.strftime("%Y-%m-%d %H:%M"), wait_seconds / 3600)
-        if wait_seconds > 0:
-            time.sleep(wait_seconds)
+def _check_pending(cfg: dict) -> tuple[int, int] | None:
+    """Poll /api/agent/status and return (month, year) if a sync is pending, else None."""
+    base_url = cfg.get("base_url", "https://ghostcfo.numbers10.co.za")
+    url = base_url.rstrip("/") + "/api/agent/status"
+    try:
+        resp = httpx.get(
+            url,
+            headers={"X-Agent-Key": cfg["api_key"]},
+            timeout=15,
+            verify=True,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        month = data.get("pending_sync_month")
+        year = data.get("pending_sync_year")
+        if month and year:
+            return int(month), int(year)
+    except Exception as exc:
+        log.warning("Pending-sync poll failed: %s", exc)
+    return None
 
-        log.info("Firing scheduled sync…")
+
+def _monthly_thread(cfg: dict) -> None:
+    log.info("Monthly scheduler thread started.")
+    while True:
+        target = _next_monthly_run()
+        wait = (target - datetime.datetime.now()).total_seconds()
+        log.info("Next monthly sync at %s (in %.1f h).", target.strftime("%Y-%m-%d %H:%M"), wait / 3600)
+        if wait > 0:
+            time.sleep(wait)
+
+        log.info("Monthly sync firing…")
         try:
             from main import _load_config, _run_sync  # noqa: PLC0415
-            cfg = _load_config()
             _run_sync(cfg)
         except Exception as exc:
-            log.exception("Scheduled sync failed: %s", exc)
+            log.exception("Monthly sync failed: %s", exc)
 
-        # Sleep briefly to avoid re-triggering within the same minute
         time.sleep(70)
+
+
+def _poll_thread(cfg: dict) -> None:
+    log.info("Hourly poll thread started (interval=%ds).", _POLL_INTERVAL_SECONDS)
+    while True:
+        time.sleep(_POLL_INTERVAL_SECONDS)
+        log.debug("Polling for pending sync requests…")
+        pending = _check_pending(cfg)
+        if pending:
+            month, year = pending
+            log.info("Pending sync request found: %02d/%d — running now.", month, year)
+            try:
+                from main import _run_sync  # noqa: PLC0415
+                _run_sync(cfg, period_month=month, period_year=year)
+            except Exception as exc:
+                log.exception("On-demand sync for %02d/%d failed: %s", month, year, exc)
+        else:
+            log.debug("No pending sync request.")
+
+
+def run_scheduler(cfg: dict) -> None:
+    """Start both threads and block forever."""
+    t_monthly = threading.Thread(target=_monthly_thread, args=(cfg,), daemon=True, name="monthly")
+    t_poll = threading.Thread(target=_poll_thread, args=(cfg,), daemon=True, name="poll")
+    t_monthly.start()
+    t_poll.start()
+    log.info("Ghost CFO Agent scheduler running (monthly + hourly poll).")
+    # Keep main thread alive
+    try:
+        while True:
+            time.sleep(60)
+    except KeyboardInterrupt:
+        log.info("Scheduler stopped.")

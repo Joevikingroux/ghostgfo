@@ -116,9 +116,10 @@ def run(month: int | None, year: int | None) -> None:
 
 @cli.command()
 def service() -> None:
-    """Entry point called by NSSM / the Windows service wrapper on schedule."""
+    """Entry point called by NSSM on startup — runs monthly + polls hourly for on-demand syncs."""
     cfg = _load_config()
-    _run_sync(cfg)  # always pulls previous month automatically
+    from service.scheduler import run_scheduler
+    run_scheduler(cfg)
 
 
 @cli.command()
