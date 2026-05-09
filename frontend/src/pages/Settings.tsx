@@ -59,8 +59,25 @@ export default function SettingsPage() {
   const set = (key: keyof CompanySettings) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
-  if (!user || !company) {
+  if (!user) {
     return <div className="text-zinc-500 text-sm">Loading…</div>;
+  }
+
+  if (!company) {
+    return (
+      <div className="max-w-xl space-y-4">
+        <div>
+          <h1 className="font-heading text-2xl font-bold">Settings</h1>
+        </div>
+        <div className="card p-6 text-center space-y-2">
+          <p className="text-zinc-300 font-medium">No company linked to this account.</p>
+          <p className="text-zinc-500 text-sm">
+            Admin accounts are not tied to a specific company. To manage client settings,
+            go to <strong className="text-white">Admin → Clients</strong> and edit the company directly.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
