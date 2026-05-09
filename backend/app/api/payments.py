@@ -34,9 +34,9 @@ PLAN_PRICES = {
 }
 
 PLAN_NAMES = {
-    "starter": "Ghost CFO Starter — R500/month",
-    "professional": "Ghost CFO Professional — R900/month",
-    "premium": "Ghost CFO Premium — R1,500/month",
+    "starter": "Ghost CFO Starter R500/month",
+    "professional": "Ghost CFO Professional R900/month",
+    "premium": "Ghost CFO Premium R1500/month",
 }
 
 PAYFAST_URL = (
@@ -152,7 +152,7 @@ def initiate_payment(body: InitiateRequest, db: Session = Depends(get_db)) -> In
         "m_payment_id": m_payment_id,
         "amount": f"{amount:.2f}",
         "item_name": PLAN_NAMES[body.plan],
-        "item_description": f"Monthly Ghost CFO subscription — {body.company_name}",
+        "item_description": f"Monthly Ghost CFO subscription - {body.company_name}",
         "subscription_type": "1",
         "billing_date": today,
         "recurring_amount": f"{amount:.2f}",
@@ -289,8 +289,8 @@ def config_test() -> dict:
         "email_address": "test@ghostcfo.co.za",
         "m_payment_id": "00000000-0000-0000-0000-000000000001",
         "amount": "500.00",
-        "item_name": "Ghost CFO Starter — R500/month",
-        "item_description": "Monthly Ghost CFO subscription — Test Company",
+        "item_name": "Ghost CFO Starter R500/month",
+        "item_description": "Monthly Ghost CFO subscription - Test Company",
         "subscription_type": "1",
         "billing_date": date.today().isoformat(),
         "recurring_amount": "500.00",
