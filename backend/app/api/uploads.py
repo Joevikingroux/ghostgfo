@@ -1,10 +1,12 @@
 """File upload endpoint — Pastel Partner + Payroll exports."""
 from __future__ import annotations
 
+import shutil
 import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -28,6 +30,51 @@ _ALLOWED_TYPES = {
 }
 _ALLOWED_EXTENSIONS = {".csv", ".xls", ".xlsx", ".txt"}
 _MAX_FILE_BYTES = 20 * 1024 * 1024  # 20 MB per file
+
+
+def _delete_old_uploads(
+    company_id: uuid.UUID,
+    period_month: int,
+    period_year: int,
+    db: Session,
+) -> None:
+    """Delete files and DB records for any existing uploads for this company/period."""
+    old = db.execute(
+        select(Upload).where(
+            Upload.company_id == company_id,
+            Upload.period_month == period_month,
+            Upload.period_year == period_year,
+        )
+    ).scalars().all()
+
+    for upload in old:
+        # Delete all individual files that were saved for this upload
+        for field in (
+            "income_statement_path", "balance_sheet_path", "debtors_age_path",
+            "creditors_age_path", "payroll_summary_path",
+            "payroll_employee_cost_path", "payroll_leave_path", "payroll_journal_path",
+        ):
+            path_str = getattr(upload, field, None)
+            if path_str:
+                try:
+                    Path(path_str).unlink(missing_ok=True)
+                except OSError:
+                    pass
+        db.delete(upload)
+
+    # Remove the now-empty period directory if it exists
+    period_dir = settings.upload_dir / str(company_id) / f"{period_year}-{period_month:02d}"
+    if period_dir.exists():
+        shutil.rmtree(period_dir, ignore_errors=True)
+
+    if old:
+        db.flush()
+        log.info(
+            "upload.cleanup",
+            company_id=str(company_id),
+            period=f"{period_year}-{period_month:02d}",
+            deleted=len(old),
+        )
 
 
 def _save_upload(file: UploadFile, dest_dir: Path, prefix: str) -> str:
@@ -76,6 +123,9 @@ def create_upload(
 
     company = db.get(Company, user.company_id)
     is_evolution = company and company.data_source == "evolution"
+
+    # Remove any previous upload files/records for this period before saving new ones
+    _delete_old_uploads(user.company_id, period_month, period_year, db)
 
     dest = settings.upload_dir / str(user.company_id) / f"{period_year}-{period_month:02d}"
 

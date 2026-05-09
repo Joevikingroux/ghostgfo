@@ -19,7 +19,7 @@ import httpx
 
 log = logging.getLogger(__name__)
 
-_POLL_INTERVAL_SECONDS = 60 * 60  # 1 hour
+_POLL_INTERVAL_SECONDS = 5 * 60  # 5 minutes
 
 
 def _next_monthly_run() -> datetime.datetime:

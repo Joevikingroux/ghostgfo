@@ -2,12 +2,39 @@
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 from typing import Any
 
 from app.core.celery_app import celery
 from app.core.logging import get_logger
 
 log = get_logger(__name__)
+
+
+def _cleanup_upload_files(upload_id: uuid.UUID, db) -> None:
+    """Delete source files for an upload after the report has been generated."""
+    from app.models.upload import Upload
+
+    upload = db.get(Upload, upload_id)
+    if not upload:
+        return
+
+    file_fields = (
+        "income_statement_path", "balance_sheet_path", "debtors_age_path",
+        "creditors_age_path", "payroll_summary_path",
+        "payroll_employee_cost_path", "payroll_leave_path", "payroll_journal_path",
+    )
+    for field in file_fields:
+        path_str = getattr(upload, field, None)
+        if path_str:
+            try:
+                Path(path_str).unlink(missing_ok=True)
+            except OSError:
+                pass
+            setattr(upload, field, None)
+
+    db.commit()
+    log.info("upload.files_cleaned", upload_id=str(upload_id))
 
 
 @celery.task(name="ghostcfo.generate_report", bind=True, max_retries=2)
@@ -20,9 +47,8 @@ def generate_report_task(self, upload_id: str) -> str:
     try:
         report = run_for_upload(uuid.UUID(upload_id), db)
         report_id = str(report.id)
-        # Chain delivery — runs in a separate worker slot so generation
-        # is not blocked and delivery can be retried independently.
         deliver_report_task.delay(report_id)
+        _cleanup_upload_files(uuid.UUID(upload_id), db)
         return report_id
     except Exception as exc:
         log.error("task.generate_report.failed", upload_id=upload_id, error=str(exc))
