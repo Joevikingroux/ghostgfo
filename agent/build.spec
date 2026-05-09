@@ -50,8 +50,7 @@ a = Analysis(
     runtime_hooks=[],
     excludes=[
         # keep the .exe lean — these are not needed at runtime
-        'tkinter', 'unittest', 'html', 'http.server',
-        'xml', 'xmlrpc', 'pydoc', 'doctest', 'difflib',
+        'tkinter',
         'setuptools', 'pip',
     ],
     win_no_prefer_redirects=False,
