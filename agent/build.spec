@@ -6,21 +6,49 @@
 #
 # Output: dist/GhostCFOAgent.exe (single-file, no console window shown to end-users)
 
+from PyInstaller.utils.hooks import collect_all, collect_submodules
+
+# PyInstaller's pyi_rth_pkgres runtime hook imports pkg_resources which pulls in
+# the full setuptools/jaraco/more_itertools tree. Collect everything up front so
+# we don't chase individual ModuleNotFoundError crashes one at a time.
+_extra_datas    = []
+_extra_binaries = []
+_extra_hidden   = []
+
+for _pkg in (
+    'pkg_resources',
+    'jaraco',
+    'jaraco.text',
+    'jaraco.functools',
+    'jaraco.context',
+    'jaraco.collections',
+    'more_itertools',
+    'importlib_resources',
+    'importlib_metadata',
+    'zipp',
+):
+    try:
+        _d, _b, _h = collect_all(_pkg)
+        _extra_datas    += _d
+        _extra_binaries += _b
+        _extra_hidden   += _h
+    except Exception:
+        pass
+
 block_cipher = None
 
 a = Analysis(
     ['main.py'],
     pathex=['.'],
-    binaries=[],
+    binaries=[] + _extra_binaries,
     datas=[
-        # Pillow image plugins needed for tray icon rendering
         ('assets/ghostcfo.ico', 'assets'),
-    ],
+    ] + _extra_datas,
     hiddenimports=[
         # cryptography backends
         'cryptography.hazmat.primitives.ciphers.aead',
         'cryptography.hazmat.backends.openssl',
-        # pyodbc — driver detection happens at runtime
+        # pyodbc
         'pyodbc',
         # httpx transports
         'httpx._transports.default',
@@ -44,15 +72,11 @@ a = Analysis(
         'service.installer',
         'service.scheduler',
         'tray',
-    ],
+    ] + _extra_hidden,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[
-        # keep the .exe lean — these are not needed at runtime
-        'tkinter',
-        'setuptools', 'pip',
-    ],
+    excludes=['tkinter'],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
@@ -72,15 +96,14 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,            # Compress with UPX if available
+    upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,       # No console window for the service mode
+    console=False,
     disable_windowed_traceback=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    # Windows-specific: embed version info and icon
-    version='version_info.txt',    # optional — create separately for code-signing
+    version='version_info.txt',
     icon='assets/ghostcfo.ico',
 )
