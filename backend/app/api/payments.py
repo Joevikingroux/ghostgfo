@@ -51,11 +51,22 @@ PAYFAST_URL = (
 # ---------------------------------------------------------------------------
 
 def _sign(data: dict[str, Any]) -> str:
-    """Generate MD5 signature for PayFast form fields."""
-    filtered = {k: str(v) for k, v in data.items() if v not in ("", None) and k != "signature"}
-    param_string = urllib.parse.urlencode(sorted(filtered.items()))
+    """Generate MD5 signature matching PayFast's PHP urlencode behavior.
+
+    Fields must be in insertion order (same order as the HTML form / POST body).
+    PayFast does NOT sort — it processes fields in the order it receives them.
+    """
+    parts = []
+    for k, v in data.items():
+        if k == "signature":
+            continue
+        val = str(v).strip()
+        if val == "":
+            continue
+        parts.append(f"{k}={urllib.parse.quote_plus(val)}")
+    param_string = "&".join(parts)
     if settings.payfast_passphrase:
-        param_string += "&passphrase=" + urllib.parse.quote_plus(settings.payfast_passphrase)
+        param_string += "&passphrase=" + urllib.parse.quote_plus(settings.payfast_passphrase.strip())
     return hashlib.md5(param_string.encode()).hexdigest()
 
 
