@@ -160,6 +160,17 @@ function CompaniesTab({ companies, onRefresh }: { companies: Company[]; onRefres
     premium: "text-brand-cyan",
   };
 
+  const deleteCompany = async (id: string, name: string) => {
+    if (!confirm(`Delete "${name}"? This will permanently remove the company and all its data. This cannot be undone.`)) return;
+    try {
+      await axios.delete(`/api/companies/${id}`, { withCredentials: true });
+      onRefresh();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      alert(msg || "Failed to delete company.");
+    }
+  };
+
   return (
     <div className="space-y-4">
       <NewCompanyForm onCreated={onRefresh} />
@@ -176,6 +187,7 @@ function CompaniesTab({ companies, onRefresh }: { companies: Company[]; onRefres
                 <th className="p-4 text-left font-medium">Plan</th>
                 <th className="p-4 text-left font-medium">Source</th>
                 <th className="p-4 text-left font-medium">Status</th>
+                <th className="p-4 text-left font-medium"></th>
               </tr>
             </thead>
             <tbody>
@@ -207,6 +219,14 @@ function CompaniesTab({ companies, onRefresh }: { companies: Company[]; onRefres
                     <span className={`text-xs font-medium ${c.active ? "text-emerald-400" : "text-red-400"}`}>
                       {c.active ? "Active" : "Inactive"}
                     </span>
+                  </td>
+                  <td className="p-4">
+                    <button
+                      onClick={() => deleteCompany(c.id, c.name)}
+                      className="text-xs text-zinc-600 hover:text-red-400 transition-colors"
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))}
