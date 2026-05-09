@@ -50,7 +50,7 @@ a = Analysis(
     runtime_hooks=[],
     excludes=[
         # keep the .exe lean — these are not needed at runtime
-        'tkinter', 'unittest', 'email', 'html', 'http.server',
+        'tkinter', 'unittest', 'html', 'http.server',
         'xml', 'xmlrpc', 'pydoc', 'doctest', 'difflib',
         'setuptools', 'pip',
     ],
