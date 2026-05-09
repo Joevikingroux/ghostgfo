@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import GhostLogo from "@/components/GhostLogo";
 
 // ── Icons (inline SVG — no icon library dependency) ──────────────────────
 
@@ -110,12 +111,8 @@ function Navbar() {
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 backdrop-blur-md bg-black/80">
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         {/* Logo */}
-        <a href="#" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ background: "linear-gradient(135deg,#2DD4BF,#06B6D4)" }}>
-            <span className="text-black font-bold text-sm font-heading">G</span>
-          </div>
-          <span className="font-heading font-bold text-lg text-white">Ghost CFO</span>
+        <a href="#" className="flex items-center">
+          <GhostLogo size={36} showText textSize="text-lg" />
         </a>
 
         {/* Desktop links */}
@@ -232,14 +229,14 @@ function Hero() {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
-          <a
-            href="mailto:ghostcfo@numbers10.co.za"
+          <Link
+            to="/signup"
             className="group flex items-center gap-2 px-8 py-4 rounded-xl text-black font-bold text-base transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(45,212,191,0.4)]"
             style={{ background: "linear-gradient(135deg,#2DD4BF,#06B6D4)" }}
           >
             Get started from R500/month
             <span className="group-hover:translate-x-1 transition-transform">{Icon.arrow}</span>
-          </a>
+          </Link>
           <button
             onClick={() => document.querySelector("#how-it-works")?.scrollIntoView({ behavior: "smooth" })}
             className="flex items-center gap-2 px-8 py-4 rounded-xl text-zinc-300 font-semibold border border-white/10 hover:border-white/20 hover:text-white transition-all text-base"
@@ -476,6 +473,7 @@ function Features() {
 function Pricing() {
   const plans = [
     {
+      id: "starter",
       name: "Starter",
       price: "R500",
       tagline: "For businesses that want clarity",
@@ -489,9 +487,9 @@ function Pricing() {
         "Pastel Partner or Evolution",
       ],
       popular: false,
-      cta: "Get started",
     },
     {
+      id: "professional",
       name: "Professional",
       price: "R900",
       tagline: "For active business owners",
@@ -505,9 +503,9 @@ function Pricing() {
         "Afrikaans language option",
       ],
       popular: true,
-      cta: "Most popular",
     },
     {
+      id: "premium",
       name: "Premium",
       price: "R1,500",
       tagline: "For businesses that want more",
@@ -521,7 +519,6 @@ function Pricing() {
         "Dedicated account manager",
       ],
       popular: false,
-      cta: "Get started",
     },
   ];
 
@@ -534,7 +531,7 @@ function Pricing() {
         </h2>
         <p className="text-zinc-400 max-w-lg mx-auto">
           No setup fee. No long-term contract. Cancel any time.
-          All plans include your first month free.
+          Pay securely via PayFast — card, EFT, or instant EFT.
         </p>
       </div>
 
@@ -577,23 +574,23 @@ function Pricing() {
               ))}
             </ul>
 
-            <a
-              href="mailto:ghostcfo@numbers10.co.za"
-              className="block text-center py-3 rounded-xl font-semibold text-sm transition-all"
+            <Link
+              to={`/signup?plan=${p.id}`}
+              className="block text-center py-3.5 rounded-xl font-bold text-sm transition-all hover:scale-105"
               style={
                 p.popular
                   ? { background: "linear-gradient(135deg,#2DD4BF,#06B6D4)", color: "#000" }
                   : { border: "1px solid rgba(45,212,191,0.3)", color: "#2DD4BF" }
               }
             >
-              {p.cta === "Most popular" ? "Get started" : p.cta}
-            </a>
+              Get started
+            </Link>
           </div>
         ))}
       </div>
 
       <p className="text-center text-zinc-600 text-sm mt-8">
-        All prices exclude VAT. Billed monthly. First month free on any plan.
+        All prices exclude VAT · Billed monthly · Secured by PayFast
       </p>
     </section>
   );
@@ -729,14 +726,14 @@ function CTAStrip() {
           Numbers10 handles everything.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <a
-            href="mailto:ghostcfo@numbers10.co.za"
+          <Link
+            to="/signup"
             className="group flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-black font-bold text-base transition-all hover:scale-105 hover:shadow-[0_0_40px_rgba(45,212,191,0.35)]"
             style={{ background: "linear-gradient(135deg,#2DD4BF,#06B6D4)" }}
           >
-            Email us to get started
+            Start your subscription
             <span className="group-hover:translate-x-1 transition-transform">{Icon.arrow}</span>
-          </a>
+          </Link>
           <a
             href="https://wa.me/27000000000"
             className="flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-white font-semibold border border-white/10 hover:border-white/25 transition-all text-base"

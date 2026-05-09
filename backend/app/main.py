@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
-from app.api import agent, auth, companies, reports, uploads, users, webhooks
+from app.api import agent, auth, companies, payments, reports, uploads, users, webhooks
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
 
@@ -41,6 +41,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(companies.router)
+app.include_router(payments.router)
 app.include_router(users.router)
 app.include_router(uploads.router)
 app.include_router(reports.router)

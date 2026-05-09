@@ -5,6 +5,7 @@ import { getMe } from "@/lib/api";
 import type { User } from "@/lib/types";
 import WebsitePage from "@/pages/Website";
 import LoginPage from "@/pages/Login";
+import SignupPage from "@/pages/Signup";
 import DashboardPage from "@/pages/Dashboard";
 import UploadPage from "@/pages/Upload";
 import ReportsPage from "@/pages/Reports";
@@ -48,6 +49,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<WebsitePage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
         <Route
           element={
             <RequireAuth>

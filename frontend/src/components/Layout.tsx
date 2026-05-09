@@ -1,6 +1,7 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { logout } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import GhostLogo from "@/components/GhostLogo";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard" },
@@ -27,7 +28,7 @@ export default function Layout() {
       {/* Top nav */}
       <header className="border-b border-surface-border px-6 h-14 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-8">
-          <span className="font-heading font-bold text-lg brand-text">Ghost CFO</span>
+          <GhostLogo size={30} showText textSize="text-lg" />
           <nav className="flex items-center gap-1">
             {nav.map((n) => (
               <Link

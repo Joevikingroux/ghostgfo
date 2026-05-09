@@ -57,6 +57,12 @@ class Settings(BaseSettings):
     # Agent
     agent_encryption_key: str = "change-me-32-bytes"
 
+    # PayFast
+    payfast_merchant_id: str = ""
+    payfast_merchant_key: str = ""
+    payfast_passphrase: str = ""
+    payfast_sandbox: bool = True   # Set False in production after testing
+
     # Payroll
     payroll_db_enabled: bool = False
     payroll_journal_gl_account: str = "7100"

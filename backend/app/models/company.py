@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import Boolean, Date, String
+from sqlalchemy import Boolean, Date, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -28,6 +28,10 @@ class Company(Base, UUIDPK, Timestamps):
     plan: Mapped[str] = mapped_column(String(32), default="starter", nullable=False)
     plan_start_date: Mapped[date | None] = mapped_column(Date)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    # PayFast subscription
+    payfast_token: Mapped[str | None] = mapped_column(Text)
+    subscription_status: Mapped[str] = mapped_column(String(32), default="inactive", nullable=False)
 
     data_source: Mapped[str] = mapped_column(
         String(32), default="partner", nullable=False
