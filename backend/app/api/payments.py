@@ -167,13 +167,13 @@ def initiate_payment(body: InitiateRequest, db: Session = Depends(get_db)) -> In
         "amount": f"{amount:.2f}",
         "item_name": PLAN_NAMES[body.plan],
         "item_description": f"Monthly Ghost CFO subscription - {body.company_name}",
+        "custom_str1": body.plan,
+        "custom_str2": str(company.id),
         "subscription_type": "1",
         "billing_date": today,
         "recurring_amount": f"{amount:.2f}",
-        "frequency": "3",    # monthly
-        "cycles": "0",       # indefinite
-        "custom_str1": body.plan,
-        "custom_str2": str(company.id),
+        "frequency": "3",
+        "cycles": "0",
     }
     fields["signature"] = _sign(fields)
 
@@ -305,13 +305,13 @@ def config_test() -> dict:
         "amount": "500.00",
         "item_name": "Ghost CFO Starter R500/month",
         "item_description": "Monthly Ghost CFO subscription - Test Company",
+        "custom_str1": "starter",
+        "custom_str2": "00000000-0000-0000-0000-000000000001",
         "subscription_type": "1",
         "billing_date": date.today().isoformat(),
         "recurring_amount": "500.00",
         "frequency": "3",
         "cycles": "0",
-        "custom_str1": "starter",
-        "custom_str2": "00000000-0000-0000-0000-000000000001",
     }
     param_no_passphrase = _build_param_string(test_fields, include_passphrase=False)
     param_with_passphrase = _build_param_string(test_fields, include_passphrase=True)

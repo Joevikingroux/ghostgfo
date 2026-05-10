@@ -27,6 +27,7 @@ app = FastAPI(
     version=__version__,
     description="Ghost CFO — AI financial narrative engine for SA SMBs.",
     lifespan=lifespan,
+    root_path="/api",
 )
 
 app.add_middleware(
