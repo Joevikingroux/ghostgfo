@@ -40,7 +40,7 @@ def login(body: LoginRequest, response: Response, db: Session = Depends(get_db))
         value=token,
         httponly=True,
         samesite="lax",
-        secure=False,  # set True behind HTTPS in production
+        secure=True,
         max_age=_COOKIE_MAX_AGE,
     )
     return TokenResponse(access_token=token)
