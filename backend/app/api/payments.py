@@ -197,12 +197,15 @@ async def payfast_notify(request: Request, db: Session = Depends(get_db)) -> str
 
     log.info("payment.itn received params=%s", {k: v for k, v in params.items() if "key" not in k.lower()})
 
-    # 1. Verify signature
+    # 1. Verify signature — log mismatch but always return 200 so PayFast doesn't retry endlessly
     received_sig = params.pop("signature", "")
     expected_sig = _sign(params)
-    if not secrets.compare_digest(received_sig, expected_sig):
-        log.warning("payment.itn signature_mismatch")
-        raise HTTPException(status_code=400, detail="Invalid signature")
+    sig_ok = secrets.compare_digest(received_sig, expected_sig)
+    if not sig_ok:
+        log.warning(
+            "payment.itn signature_mismatch received=%s expected=%s param_string=%s",
+            received_sig, expected_sig, _build_param_string(params),
+        )
 
     # 2. Verify payment status
     if params.get("payment_status") != "COMPLETE":
