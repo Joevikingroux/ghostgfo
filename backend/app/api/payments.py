@@ -267,7 +267,7 @@ def _send_welcome_email(company: Any, user: Any) -> None:
     resend.Emails.send({
         "from": f"{settings.from_name} <{settings.from_email}>",
         "to": [user.email],
-        "subject": f"Welcome to Ghost CFO — your account is active",
+        "subject": "Welcome to Ghost CFO — your account is active",
         "html": f"""
         <div style="font-family:Inter,sans-serif;max-width:520px;margin:auto;background:#000;color:#fff;padding:32px;border-radius:12px">
           <div style="margin-bottom:24px">
@@ -275,11 +275,19 @@ def _send_welcome_email(company: Any, user: Any) -> None:
           </div>
           <h2 style="font-size:20px;margin:0 0 12px">Welcome, {company.owner_name or user.email}!</h2>
           <p style="color:#a1a1aa;line-height:1.6">Your Ghost CFO subscription is now active. Your first monthly financial report will be generated at month-end.</p>
-          <p style="color:#a1a1aa;line-height:1.6">Log in to your portal to upload your Pastel files or check your report status:</p>
+
+          <div style="background:#111;border:1px solid #27272a;border-radius:8px;padding:16px;margin:20px 0">
+            <p style="color:#71717a;font-size:12px;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.05em">Your login details</p>
+            <p style="margin:4px 0;font-size:14px"><span style="color:#71717a">Email:</span> <strong style="color:#fff">{user.email}</strong></p>
+            <p style="margin:4px 0;font-size:14px"><span style="color:#71717a">Password:</span> <span style="color:#a1a1aa">the password you chose during signup</span></p>
+            <p style="margin:4px 0;font-size:14px"><span style="color:#71717a">Plan:</span> <span style="color:#2DD4BF">{company.plan.title()}</span></p>
+          </div>
+
+          <p style="color:#a1a1aa;line-height:1.6">Log in to complete your company profile and upload your first Pastel files:</p>
           <a href="{portal_url}" style="display:inline-block;margin:16px 0;padding:12px 28px;background:linear-gradient(135deg,#2DD4BF,#06B6D4);color:#000;font-weight:700;border-radius:8px;text-decoration:none">
             Open Portal
           </a>
-          <p style="color:#52525b;font-size:12px;margin-top:32px">Powered by Numbers10 Technology Solutions · numbers10.co.za</p>
+          <p style="color:#52525b;font-size:12px;margin-top:32px">Powered by Numbers10 Technology Solutions &middot; numbers10.co.za</p>
         </div>
         """,
     })

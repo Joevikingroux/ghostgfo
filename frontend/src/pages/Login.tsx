@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { login } from "@/lib/api";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const paymentSuccess = searchParams.get("payment") === "success";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -30,6 +32,13 @@ export default function LoginPage() {
         <h1 className="font-heading text-4xl font-bold brand-text mb-2">Ghost CFO</h1>
         <p className="text-zinc-500 text-sm">AI-powered financial insight for South African SMBs</p>
       </div>
+
+      {paymentSuccess && (
+        <div className="w-full max-w-sm mb-4 rounded-lg bg-teal-500/10 border border-teal-500/30 px-4 py-3">
+          <p className="text-teal-400 text-sm font-medium">Payment successful — your account is active!</p>
+          <p className="text-zinc-400 text-xs mt-1">Log in below with the email and password you used during signup.</p>
+        </div>
+      )}
 
       {/* Card */}
       <div className="card w-full max-w-sm p-8">
