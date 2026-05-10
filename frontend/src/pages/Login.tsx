@@ -59,7 +59,9 @@ export default function LoginPage() {
             />
           </div>
           {error && (
-            <p className="text-red-400 text-xs">{error}</p>
+            <div className="rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3">
+              <p className="text-red-400 text-sm font-medium">{error}</p>
+            </div>
           )}
           <button
             type="submit"
