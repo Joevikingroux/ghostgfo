@@ -37,6 +37,7 @@ interface PayFastFields {
 export default function SignupPage() {
   const [params] = useSearchParams();
   const [plan, setPlan] = useState(params.get("plan") || "professional");
+  const wasCancelled = params.get("cancelled") === "true";
   const [form, setForm] = useState({ company_name: "", owner_name: "", email: "", password: "" });
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -90,6 +91,12 @@ export default function SignupPage() {
       </nav>
 
       <div className="max-w-5xl mx-auto px-6 py-12">
+        {wasCancelled && (
+          <div className="max-w-md mx-auto mb-6 rounded-lg bg-amber-500/10 border border-amber-500/30 px-4 py-3">
+            <p className="text-amber-400 text-sm font-medium">Payment cancelled — no account was created.</p>
+            <p className="text-zinc-400 text-xs mt-1">You can try again below whenever you're ready.</p>
+          </div>
+        )}
         <div className="text-center mb-10">
           <h1 className="font-heading text-3xl font-bold mb-2">Choose your plan</h1>
           <p className="text-zinc-400">No setup fees. Cancel anytime. Your first report arrives at month-end.</p>

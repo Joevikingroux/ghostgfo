@@ -158,7 +158,7 @@ def initiate_payment(body: InitiateRequest, db: Session = Depends(get_db)) -> In
         "merchant_id": settings.payfast_merchant_id,
         "merchant_key": settings.payfast_merchant_key,
         "return_url": f"{settings.base_url}/payments/success",
-        "cancel_url": f"{settings.base_url}/payments/cancel",
+        "cancel_url": f"{settings.base_url}/payments/cancel?pid={company.id}",
         "notify_url": f"{settings.base_url}/payments/notify",
         "name_first": body.owner_name.split()[0] if body.owner_name else "",
         "name_last": " ".join(body.owner_name.split()[1:]) if body.owner_name and len(body.owner_name.split()) > 1 else "",
@@ -346,5 +346,21 @@ def payment_success() -> RedirectResponse:
 
 
 @router.get("/cancel")
-def payment_cancel() -> RedirectResponse:
-    return RedirectResponse(url="/?payment=cancelled", status_code=302)
+def payment_cancel(pid: str | None = None, db: Session = Depends(get_db)) -> RedirectResponse:
+    """Clean up pending company/user when buyer cancels on PayFast."""
+    if pid:
+        import uuid as _uuid
+        from app.models.company import Company
+        from app.models.user import User as UserModel
+        from sqlalchemy import delete as sa_delete
+        try:
+            cid = _uuid.UUID(pid)
+            company = db.get(Company, cid)
+            if company and company.subscription_status == "pending":
+                db.execute(sa_delete(UserModel).where(UserModel.company_id == cid))
+                db.delete(company)
+                db.commit()
+                log.info("payment.cancel cleaned_up company=%s", cid)
+        except Exception as exc:
+            log.warning("payment.cancel cleanup_failed: %s", exc)
+    return RedirectResponse(url="/signup?cancelled=true", status_code=302)
