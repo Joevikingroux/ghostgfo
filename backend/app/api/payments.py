@@ -107,34 +107,48 @@ def initiate_payment(body: InitiateRequest, db: Session = Depends(get_db)) -> In
             detail="PayFast is not configured yet. Contact Numbers10 to activate your account.",
         )
 
-    # Check email not already registered
+    # If a pending account already exists for this email, reuse it instead of creating duplicates
     existing = db.execute(select(User).where(User.email == body.email)).scalar_one_or_none()
     if existing:
-        raise HTTPException(status_code=409, detail="An account with this email already exists. Please log in.")
+        if existing.active:
+            raise HTTPException(status_code=409, detail="An account with this email already exists. Please log in.")
+        # Pending user from a previous failed payment — reuse the company, update plan
+        company = db.get(Company, existing.company_id)
+        if company:
+            company.plan = body.plan
+            company.name = body.company_name
+            company.owner_name = body.owner_name
+            db.commit()
+            db.refresh(company)
+        else:
+            db.delete(existing)
+            db.flush()
+            existing = None
 
-    # Create inactive company + user
-    company = Company(
-        name=body.company_name,
-        owner_name=body.owner_name,
-        owner_email=body.email,
-        plan=body.plan,
-        active=False,
-        subscription_status="pending",
-    )
-    db.add(company)
-    db.flush()
+    if not existing:
+        # Fresh signup — create inactive company + user
+        company = Company(
+            name=body.company_name,
+            owner_name=body.owner_name,
+            owner_email=body.email,
+            plan=body.plan,
+            active=False,
+            subscription_status="pending",
+        )
+        db.add(company)
+        db.flush()
 
-    user = User(
-        company_id=company.id,
-        email=body.email,
-        full_name=body.owner_name,
-        password_hash=hash_password(body.password),
-        role="owner",
-        active=False,
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(company)
+        user = User(
+            company_id=company.id,
+            email=body.email,
+            full_name=body.owner_name,
+            password_hash=hash_password(body.password),
+            role="owner",
+            active=False,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(company)
 
     amount = PLAN_PRICES[body.plan]
     m_payment_id = str(company.id)

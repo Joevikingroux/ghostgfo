@@ -68,7 +68,7 @@ def update_company(
         if user.company_id != company_id:
             raise HTTPException(status_code=403, detail="Access denied")
         restricted = body.model_dump(exclude_none=True)
-        for f in ("plan", "active", "data_source"):
+        for f in ("plan", "active"):
             restricted.pop(f, None)
         for field, value in restricted.items():
             setattr(company, field, value)

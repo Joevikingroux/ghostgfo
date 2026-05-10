@@ -1,5 +1,6 @@
-import { Link, Outlet, useLocation } from "react-router-dom";
-import { logout } from "@/lib/api";
+import { useEffect } from "react";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { logout, getCompany } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import GhostLogo from "@/components/GhostLogo";
 
@@ -13,6 +14,16 @@ const NAV = [
 export default function Layout() {
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  // Redirect owner to /setup on first login if company profile is incomplete
+  useEffect(() => {
+    if (user?.role === "owner" && user.company_id && location.pathname !== "/setup") {
+      getCompany(user.company_id).then((res) => {
+        if (!res.data.industry) navigate("/setup", { replace: true });
+      }).catch(() => {});
+    }
+  }, [user, location.pathname, navigate]);
 
   const handleLogout = async () => {
     await logout();

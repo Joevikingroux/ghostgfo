@@ -11,6 +11,7 @@ import UploadPage from "@/pages/Upload";
 import ReportsPage from "@/pages/Reports";
 import SettingsPage from "@/pages/Settings";
 import AdminPage from "@/pages/Admin";
+import SetupPage from "@/pages/Setup";
 import Layout from "@/components/Layout";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -57,6 +58,7 @@ export default function App() {
             </RequireAuth>
           }
         >
+          <Route path="/setup" element={<SetupPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/upload" element={<UploadPage />} />
           <Route path="/reports" element={<ReportsPage />} />

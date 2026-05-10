@@ -32,6 +32,9 @@ export const getCompany = (id: string) => client.get<Company>(`/companies/${id}`
 export const createCompany = (data: Partial<Company>) =>
   client.post<Company>("/companies", data);
 
+export const updateCompany = (id: string, data: Partial<Company>) =>
+  client.patch<Company>(`/companies/${id}`, data);
+
 // ---- Uploads ----
 export const createUpload = (formData: FormData) =>
   client.post<Upload>("/uploads", formData, {
