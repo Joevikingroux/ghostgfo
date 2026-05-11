@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { Company, Metrics, Report, ReportListItem, Upload, User } from "./types";
+import type { Company, Metrics, Report, ReportListItem, Upload, User, UserAdminView } from "./types";
 
 const client = axios.create({
   baseURL: "/api",
@@ -18,11 +18,45 @@ client.interceptors.response.use(
 
 // ---- Auth ----
 export const login = (email: string, password: string) =>
-  client.post<{ access_token: string }>("/auth/login", { email, password });
+  client.post<{ access_token: string; requires_2fa: boolean; partial_token: string | null }>(
+    "/auth/login", { email, password }
+  );
+
+export const verify2FA = (partial_token: string, code: string) =>
+  client.post<{ access_token: string }>("/auth/2fa/verify", { partial_token, code });
+
+export const setup2FA = () =>
+  client.get<{ secret: string; qr_data_uri: string; otp_uri: string }>("/auth/2fa/setup");
+
+export const confirm2FA = (secret: string, code: string) =>
+  client.post("/auth/2fa/confirm", { secret, code });
+
+export const disableOwn2FA = () => client.delete("/auth/2fa");
+
+export const changePassword = (current_password: string, new_password: string) =>
+  client.post("/auth/change-password", { current_password, new_password });
+
+export const requestPasswordReset = (email: string) =>
+  client.post("/auth/reset-password/request", { email });
+
+export const confirmPasswordReset = (token: string, new_password: string) =>
+  client.post("/auth/reset-password/confirm", { token, new_password });
+
+export const adminReset2FA = (user_id: string) =>
+  client.post(`/auth/2fa/reset/${user_id}`);
 
 export const logout = () => client.post("/auth/logout");
 
 export const getMe = () => client.get<User>("/auth/me");
+
+// ---- Admin users ----
+export const getUsers = () => client.get<UserAdminView[]>("/users");
+
+export const deactivateUser = (user_id: string) =>
+  client.patch(`/users/${user_id}/deactivate`);
+
+export const activateUser = (user_id: string) =>
+  client.patch(`/users/${user_id}/activate`);
 
 // ---- Companies ----
 export const getCompanies = () => client.get<Company[]>("/companies");

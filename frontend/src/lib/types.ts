@@ -4,6 +4,20 @@ export interface User {
   full_name: string | null;
   role: "owner" | "bookkeeper" | "viewer" | "admin";
   company_id: string | null;
+  must_change_password: boolean;
+  totp_enabled: boolean;
+}
+
+export interface UserAdminView {
+  id: string;
+  email: string;
+  full_name: string | null;
+  role: string;
+  company_id: string | null;
+  company_name: string | null;
+  active: boolean;
+  must_change_password: boolean;
+  totp_enabled: boolean;
 }
 
 export interface Company {

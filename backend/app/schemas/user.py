@@ -29,5 +29,21 @@ class UserOut(BaseModel):
     role: str
     company_id: uuid.UUID | None
     active: bool
+    must_change_password: bool = False
+    totp_enabled: bool = False
+
+    model_config = {"from_attributes": True}
+
+
+class UserAdminOut(BaseModel):
+    id: uuid.UUID
+    email: str
+    full_name: str | None
+    role: str
+    company_id: uuid.UUID | None
+    company_name: str | None
+    active: bool
+    must_change_password: bool
+    totp_enabled: bool
 
     model_config = {"from_attributes": True}

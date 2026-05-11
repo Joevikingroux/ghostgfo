@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { logout, getCompany } from "@/lib/api";
@@ -12,6 +12,12 @@ const NAV = [
   { to: "/reports", label: "Reports" },
   { to: "/settings", label: "Settings" },
 ];
+
+const INACTIVITY_MS = 5 * 60 * 1000; // 5 minutes
+
+// ---------------------------------------------------------------------------
+// System status modal (admin double-click logo)
+// ---------------------------------------------------------------------------
 
 function StatusModal({ onClose }: { onClose: () => void }) {
   const [status, setStatus] = useState<SystemStatus | null>(null);
@@ -57,28 +63,89 @@ function StatusModal({ onClose }: { onClose: () => void }) {
               return (
                 <div key={key} className="flex items-center justify-between gap-3 py-1.5 border-b border-white/5 last:border-0">
                   <span className="text-sm text-zinc-300">{LABELS[key]}</span>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className={`text-xs ${check.ok ? "text-emerald-400" : "text-red-400"}`}>
-                      {check.ok ? "✓" : "✗"} {check.message}
-                    </span>
-                  </div>
+                  <span className={`text-xs ${check.ok ? "text-emerald-400" : "text-red-400"}`}>
+                    {check.ok ? "✓" : "✗"} {check.message}
+                  </span>
                 </div>
               );
             })}
           </div>
         )}
-
         <p className="text-xs text-zinc-600 mt-4 text-center">Double-click the logo to open this panel</p>
       </div>
     </div>
   );
 }
 
+// ---------------------------------------------------------------------------
+// 2FA reminder banner
+// ---------------------------------------------------------------------------
+
+const BANNER_DISMISSED_KEY = "gcfo_2fa_banner_dismissed";
+
+function TwoFABanner() {
+  const [dismissed, setDismissed] = useState(
+    () => sessionStorage.getItem(BANNER_DISMISSED_KEY) === "1"
+  );
+
+  const dismiss = () => {
+    sessionStorage.setItem(BANNER_DISMISSED_KEY, "1");
+    setDismissed(true);
+  };
+
+  if (dismissed) return null;
+
+  return (
+    <div className="bg-amber-500/10 border-b border-amber-500/20 px-6 py-2.5 flex items-center justify-between gap-4">
+      <p className="text-amber-300 text-xs">
+        <span className="font-semibold">Secure your account:</span>{" "}
+        Two-factor authentication is not enabled.{" "}
+        <Link to="/settings" className="underline hover:text-amber-200">
+          Set up 2FA in Settings
+        </Link>{" "}
+        to protect your financial data.
+      </p>
+      <button
+        onClick={dismiss}
+        className="text-amber-500 hover:text-amber-300 text-lg leading-none shrink-0"
+        aria-label="Dismiss"
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Layout
+// ---------------------------------------------------------------------------
+
 export default function Layout() {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [statusOpen, setStatusOpen] = useState(false);
+  const inactivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Auto-logout after INACTIVITY_MS of no user interaction
+  useEffect(() => {
+    const resetTimer = () => {
+      if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+      inactivityTimer.current = setTimeout(async () => {
+        await logout().catch(() => {});
+        window.location.href = "/login?reason=timeout";
+      }, INACTIVITY_MS);
+    };
+
+    const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll"];
+    events.forEach((e) => document.addEventListener(e, resetTimer, { passive: true }));
+    resetTimer();
+
+    return () => {
+      events.forEach((e) => document.removeEventListener(e, resetTimer));
+      if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+    };
+  }, []);
 
   // Redirect owner to /setup on first login if company profile is incomplete
   useEffect(() => {
@@ -102,6 +169,11 @@ export default function Layout() {
     <div className="min-h-screen flex flex-col bg-black">
       {statusOpen && user?.role === "admin" && (
         <StatusModal onClose={() => setStatusOpen(false)} />
+      )}
+
+      {/* 2FA reminder banner — shown to all non-admin users who haven't enabled 2FA */}
+      {user && user.role !== "admin" && !user.totp_enabled && (
+        <TwoFABanner />
       )}
 
       {/* Top nav */}

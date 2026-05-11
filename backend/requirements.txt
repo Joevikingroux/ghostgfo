@@ -38,6 +38,10 @@ pyodbc==5.2.0
 # Email
 resend==2.7.0
 
+# 2FA
+pyotp==2.9.0
+qrcode[pil]==8.0
+
 # Utility
 python-dotenv==1.0.1
 structlog==24.4.0

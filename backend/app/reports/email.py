@@ -106,3 +106,81 @@ def send_report_email(
     except Exception as exc:
         log.error("email.failed", to=to_email, error=str(exc))
         return False
+
+
+def send_welcome_email(
+    *,
+    to_email: str,
+    to_name: str,
+    company_name: str,
+    reset_link: str,
+) -> bool:
+    """Send a bookkeeper welcome email with a set-password link."""
+    return _send_auth_email(
+        to_email=to_email,
+        to_name=to_name,
+        company_name=company_name,
+        reset_link=reset_link,
+        is_reset=False,
+        subject=f"Ghost CFO — your bookkeeper account for {company_name}",
+    )
+
+
+def send_password_reset_email(
+    *,
+    to_email: str,
+    to_name: str,
+    reset_link: str,
+) -> bool:
+    """Send a password-reset email."""
+    return _send_auth_email(
+        to_email=to_email,
+        to_name=to_name,
+        company_name="",
+        reset_link=reset_link,
+        is_reset=True,
+        subject="Ghost CFO — reset your password",
+    )
+
+
+def _send_auth_email(
+    *,
+    to_email: str,
+    to_name: str,
+    company_name: str,
+    reset_link: str,
+    is_reset: bool,
+    subject: str,
+) -> bool:
+    if not settings.resend_api_key:
+        log.warning("email.skipped", reason="RESEND_API_KEY not set")
+        return False
+
+    try:
+        import resend
+    except ImportError:
+        log.error("email.import_error", msg="resend package not installed")
+        return False
+
+    resend.api_key = settings.resend_api_key
+
+    html_body = _jinja.get_template("email_welcome.html").render(
+        to_name=to_name,
+        to_email=to_email,
+        company_name=company_name,
+        reset_link=reset_link,
+        is_reset=is_reset,
+    )
+
+    try:
+        response = resend.Emails.send({
+            "from": f"{settings.from_name} <{settings.from_email}>",
+            "to": [to_email],
+            "subject": subject,
+            "html": html_body,
+        })
+        log.info("auth_email.sent", to=to_email, id=response.get("id"))
+        return True
+    except Exception as exc:
+        log.error("auth_email.failed", to=to_email, error=str(exc))
+        return False

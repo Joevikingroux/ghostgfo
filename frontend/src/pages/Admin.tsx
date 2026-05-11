@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import type { Company, EvolutionAgent } from "@/lib/types";
+import { getUsers, adminReset2FA, deactivateUser, activateUser } from "@/lib/api";
+import type { Company, EvolutionAgent, UserAdminView } from "@/lib/types";
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -397,195 +398,158 @@ function CompaniesTab({ companies, onRefresh }: { companies: Company[]; onRefres
 
 // ── Users tab ──────────────────────────────────────────────────────────────
 
-interface UserRow {
-  id: string;
-  email: string;
-  full_name: string | null;
-  role: string;
-  company_id: string | null;
-  active: boolean;
-}
-
-const BLANK_USER = { email: "", password: "", full_name: "", role: "owner", company_id: "" };
+const ROLE_COLOUR: Record<string, string> = {
+  admin: "text-brand-teal",
+  owner: "text-white",
+  bookkeeper: "text-zinc-300",
+  viewer: "text-zinc-500",
+};
 
 function UsersTab({ companies }: { companies: Company[] }) {
-  const [users, setUsers] = useState<UserRow[]>([]);
+  const [users, setUsers] = useState<UserAdminView[]>([]);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState(BLANK_USER);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [showPw, setShowPw] = useState(false);
+  const [actionInProgress, setActionInProgress] = useState<string | null>(null);
 
   const load = () =>
-    axios.get("/api/users", { withCredentials: true })
-      .then((r) => setUsers(r.data))
-      .finally(() => setLoading(false));
+    getUsers().then((r) => setUsers(r.data)).finally(() => setLoading(false));
 
   useEffect(() => { load(); }, []);
 
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setForm((p) => ({ ...p, [k]: e.target.value }));
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setError("");
+  const handleReset2FA = async (u: UserAdminView) => {
+    if (!confirm(`Reset 2FA for ${u.email}? They will need to re-enrol on next login.`)) return;
+    setActionInProgress(u.id);
     try {
-      const payload = { ...form, company_id: form.company_id || null };
-      await axios.post("/api/users", payload, { withCredentials: true });
-      setForm(BLANK_USER);
-      setOpen(false);
+      await adminReset2FA(u.id);
       load();
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      setError(msg || "Failed to create user.");
     } finally {
-      setSaving(false);
+      setActionInProgress(null);
     }
   };
 
-  const deleteUser = async (id: string, email: string) => {
-    if (!confirm(`Delete user ${email}? This cannot be undone.`)) return;
-    await axios.delete(`/api/users/${id}`, { withCredentials: true });
-    load();
+  const handleToggleActive = async (u: UserAdminView) => {
+    const action = u.active ? "deactivate" : "activate";
+    if (!confirm(`${u.active ? "Deactivate" : "Activate"} user ${u.email}?`)) return;
+    setActionInProgress(u.id);
+    try {
+      u.active ? await deactivateUser(u.id) : await activateUser(u.id);
+      load();
+    } finally {
+      setActionInProgress(null);
+    }
   };
 
-  const companyName = (id: string | null) =>
-    companies.find((c) => c.id === id)?.name ?? "—";
-
-  const ROLE_COLOUR: Record<string, string> = {
-    admin: "text-brand-teal",
-    owner: "text-white",
-    bookkeeper: "text-zinc-300",
-    viewer: "text-zinc-500",
+  const handleDelete = async (u: UserAdminView) => {
+    if (!confirm(`Permanently delete ${u.email}? This cannot be undone.`)) return;
+    setActionInProgress(u.id);
+    try {
+      await axios.delete(`/api/users/${u.id}`, { withCredentials: true });
+      load();
+    } finally {
+      setActionInProgress(null);
+    }
   };
+
+  // Group users by company
+  const grouped = users.reduce<Record<string, UserAdminView[]>>((acc, u) => {
+    const key = u.company_name ?? "__admin__";
+    (acc[key] ??= []).push(u);
+    return acc;
+  }, {});
+
+  const groupKeys = Object.keys(grouped).sort((a, b) => {
+    if (a === "__admin__") return 1;
+    if (b === "__admin__") return -1;
+    return a.localeCompare(b);
+  });
+
+  if (loading) return <p className="text-zinc-500 text-sm">Loading users…</p>;
 
   return (
     <div className="space-y-4">
-      {/* New user form */}
-      <div className="card">
-        <button
-          onClick={() => setOpen((o) => !o)}
-          className="w-full flex items-center justify-between p-5 text-left"
-        >
-          <span className="font-heading text-sm font-bold text-brand-teal uppercase tracking-wider">
-            + Add New User
-          </span>
-          <span className="text-zinc-500 text-sm">{open ? "▲" : "▼"}</span>
-        </button>
-
-        {open && (
-          <form onSubmit={handleSubmit} className="px-5 pb-5 space-y-4 border-t border-surface-border pt-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1">Email *</label>
-                <input required type="email" value={form.email} onChange={set("email")} className="input-base w-full" placeholder="owner@client.co.za" />
-              </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1">Full Name</label>
-                <input value={form.full_name} onChange={set("full_name")} className="input-base w-full" placeholder="John Smith" />
-              </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1">Password *</label>
-                <div className="relative">
-                  <input
-                    required
-                    type={showPw ? "text" : "password"}
-                    value={form.password}
-                    onChange={set("password")}
-                    className="input-base w-full pr-16"
-                    placeholder="Min. 8 characters"
-                    minLength={8}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPw((p) => !p)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-zinc-500 hover:text-white"
-                  >
-                    {showPw ? "Hide" : "Show"}
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1">Role</label>
-                <select value={form.role} onChange={set("role")} className="input-base w-full">
-                  <option value="owner">Owner — sees reports &amp; dashboard</option>
-                  <option value="bookkeeper">Bookkeeper — uploads files</option>
-                  <option value="viewer">Viewer — read only</option>
-                  <option value="admin">Admin — full access (Numbers10 only)</option>
-                </select>
-              </div>
-              <div className="sm:col-span-2">
-                <label className="block text-xs text-zinc-400 mb-1">Company</label>
-                <select value={form.company_id} onChange={set("company_id")} className="input-base w-full">
-                  <option value="">— No company (admin account) —</option>
-                  {companies.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            {error && <p className="text-red-400 text-xs">{error}</p>}
-            <div className="flex gap-3 pt-1">
-              <button type="submit" disabled={saving} className="btn-primary">
-                {saving ? "Creating…" : "Create User"}
-              </button>
-              <button type="button" onClick={() => setOpen(false)} className="btn-secondary">
-                Cancel
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-
-      {/* Users list */}
-      {loading ? (
-        <p className="text-zinc-500 text-sm">Loading users…</p>
-      ) : users.length === 0 ? (
-        <p className="text-zinc-500 text-sm">No users yet.</p>
-      ) : (
-        <div className="card overflow-x-auto">
+      {groupKeys.map((group) => (
+        <div key={group} className="card overflow-hidden">
+          <div className="px-5 py-3 border-b border-surface-border bg-white/2">
+            <p className="font-heading text-xs font-bold text-zinc-400 uppercase tracking-wider">
+              {group === "__admin__" ? "Numbers10 / Admin accounts" : group}
+            </p>
+          </div>
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-surface-border text-xs text-zinc-500 uppercase tracking-wider">
-                <th className="p-4 text-left font-medium">User</th>
-                <th className="p-4 text-left font-medium">Role</th>
-                <th className="p-4 text-left font-medium">Company</th>
-                <th className="p-4 text-left font-medium">Status</th>
-                <th className="p-4 text-left font-medium"></th>
+              <tr className="border-b border-surface-border text-xs text-zinc-600 uppercase tracking-wider">
+                <th className="px-5 py-2.5 text-left font-medium">User</th>
+                <th className="px-5 py-2.5 text-left font-medium">Role</th>
+                <th className="px-5 py-2.5 text-left font-medium">2FA</th>
+                <th className="px-5 py-2.5 text-left font-medium">Status</th>
+                <th className="px-5 py-2.5 text-left font-medium"></th>
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => (
-                <tr key={u.id} className="border-b border-surface-border/40 hover:bg-surface-card/40 transition-colors">
-                  <td className="p-4">
-                    <p className="font-medium">{u.full_name ?? u.email}</p>
-                    {u.full_name && <p className="text-xs text-zinc-500">{u.email}</p>}
-                  </td>
-                  <td className="p-4">
-                    <span className={`capitalize font-medium ${ROLE_COLOUR[u.role] ?? ""}`}>{u.role}</span>
-                  </td>
-                  <td className="p-4 text-zinc-400">{companyName(u.company_id)}</td>
-                  <td className="p-4">
-                    <span className={`text-xs font-medium ${u.active ? "text-emerald-400" : "text-red-400"}`}>
-                      {u.active ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    <button
-                      onClick={() => deleteUser(u.id, u.email)}
-                      className="text-xs text-zinc-600 hover:text-red-400 transition-colors"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {grouped[group].map((u) => {
+                const busy = actionInProgress === u.id;
+                return (
+                  <tr key={u.id} className="border-b border-surface-border/30 last:border-0 hover:bg-white/2 transition-colors">
+                    <td className="px-5 py-3">
+                      <p className="font-medium">{u.full_name ?? u.email}</p>
+                      {u.full_name && <p className="text-xs text-zinc-500">{u.email}</p>}
+                      {u.must_change_password && (
+                        <p className="text-xs text-amber-400 mt-0.5">⚠ Must set password</p>
+                      )}
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className={`capitalize font-medium text-sm ${ROLE_COLOUR[u.role] ?? ""}`}>{u.role}</span>
+                    </td>
+                    <td className="px-5 py-3">
+                      {u.totp_enabled ? (
+                        <span className="text-xs text-emerald-400 font-medium">✓ On</span>
+                      ) : (
+                        <span className="text-xs text-zinc-600">Off</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className={`text-xs font-medium ${u.active ? "text-emerald-400" : "text-red-400"}`}>
+                        {u.active ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-3">
+                        {u.totp_enabled && (
+                          <button
+                            onClick={() => handleReset2FA(u)}
+                            disabled={busy}
+                            className="text-xs text-zinc-500 hover:text-amber-400 transition-colors"
+                            title="Reset 2FA — user re-enrols on next login"
+                          >
+                            Reset 2FA
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleToggleActive(u)}
+                          disabled={busy}
+                          className={`text-xs transition-colors ${
+                            u.active
+                              ? "text-zinc-500 hover:text-red-400"
+                              : "text-zinc-500 hover:text-emerald-400"
+                          }`}
+                        >
+                          {u.active ? "Deactivate" : "Activate"}
+                        </button>
+                        <button
+                          onClick={() => handleDelete(u)}
+                          disabled={busy}
+                          className="text-xs text-zinc-600 hover:text-red-400 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
-      )}
+      ))}
+      {users.length === 0 && <p className="text-zinc-500 text-sm">No users yet.</p>}
     </div>
   );
 }

@@ -6,6 +6,8 @@ import type { User } from "@/lib/types";
 import WebsitePage from "@/pages/Website";
 import LoginPage from "@/pages/Login";
 import SignupPage from "@/pages/Signup";
+import SetPasswordPage from "@/pages/SetPassword";
+import ChangePasswordPage from "@/pages/ChangePassword";
 import DashboardPage from "@/pages/Dashboard";
 import UploadPage from "@/pages/Upload";
 import ReportsPage from "@/pages/Reports";
@@ -37,6 +39,11 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
   if (!user) return <Navigate to="/login" replace />;
 
+  // Force password change before any other page
+  if (user.must_change_password && window.location.pathname !== "/change-password") {
+    return <Navigate to="/change-password" replace />;
+  }
+
   return (
     <AuthContext.Provider value={{ user, loading, refetch }}>
       {children}
@@ -48,9 +55,24 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public pages */}
         <Route path="/" element={<WebsitePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/set-password" element={<SetPasswordPage />} />
+        <Route path="/forgot-password" element={<SetPasswordPage />} />
+
+        {/* Authenticated: change password (outside Layout so user can't nav away) */}
+        <Route
+          path="/change-password"
+          element={
+            <RequireAuth>
+              <ChangePasswordPage />
+            </RequireAuth>
+          }
+        />
+
+        {/* Authenticated portal */}
         <Route
           element={
             <RequireAuth>
@@ -65,6 +87,7 @@ export default function App() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/admin" element={<AdminPage />} />
         </Route>
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
