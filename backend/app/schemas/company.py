@@ -26,6 +26,9 @@ class CompanyCreate(BaseModel):
 class CompanyUpdate(BaseModel):
     name: str | None = None
     trading_name: str | None = None
+    industry: str | None = None
+    reg_number: str | None = None
+    vat_number: str | None = None
     owner_name: str | None = None
     owner_email: EmailStr | None = None
     owner_whatsapp: str | None = None
