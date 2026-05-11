@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { Company, Metrics, Report, ReportListItem, Upload, User, UserAdminView } from "./types";
+import type { AdminOverview, Company, Metrics, Report, ReportListItem, Upload, User, UserAdminView } from "./types";
 
 const client = axios.create({
   baseURL: "/api",
@@ -109,6 +109,9 @@ export const getRevenueTrends = () =>
     revenue: number;
     gross_profit: number;
   }>>("/reports/trends/revenue");
+
+// ---- Admin overview ----
+export const getAdminOverview = () => client.get<AdminOverview>("/admin/overview");
 
 // Helper: trigger a PDF download in the browser
 export const triggerPdfDownload = async (reportId: string, filename: string) => {

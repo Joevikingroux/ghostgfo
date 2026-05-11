@@ -8,6 +8,7 @@ import type { SystemStatus } from "@/lib/types";
 
 const ADMIN_NAV = [
   { to: "/admin", label: "Overview" },
+  { to: "/admin/manage", label: "Clients & Users" },
   { to: "/settings", label: "Settings" },
 ];
 

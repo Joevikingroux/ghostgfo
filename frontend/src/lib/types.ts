@@ -157,6 +157,46 @@ export interface EvolutionAgent {
   active: boolean;
 }
 
+export interface AdminClientCard {
+  id: string;
+  name: string;
+  plan: "starter" | "professional" | "premium";
+  data_source: "partner" | "evolution";
+  health_score: number | null;
+  health_rating: string | null;
+  last_report_month: number | null;
+  last_report_year: number | null;
+  last_report_generated: string | null;
+  payroll_pending: boolean;
+  email_sent: boolean;
+  agent_last_sync: string | null;
+  agent_status: string | null;
+  agent_active: boolean;
+}
+
+export interface AdminRecentReport {
+  company_name: string;
+  period_month: number;
+  period_year: number;
+  health_score: number | null;
+  health_rating: string | null;
+  generated_at: string;
+  email_sent: boolean;
+}
+
+export interface AdminOverview {
+  mrr: number;
+  active_clients: number;
+  inactive_clients: number;
+  plans: Record<string, number>;
+  reports_this_month: number;
+  payroll_pending_count: number;
+  health_distribution: Record<string, number>;
+  clients: AdminClientCard[];
+  recent_reports: AdminRecentReport[];
+  fetched_at: string;
+}
+
 export interface ServiceCheck {
   ok: boolean;
   message: string;

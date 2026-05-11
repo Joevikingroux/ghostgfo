@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
-from app.api import agent, auth, companies, payments, reports, uploads, users
+from app.api import admin_overview, agent, auth, companies, payments, reports, uploads, users
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
 
@@ -47,6 +47,7 @@ app.include_router(users.router)
 app.include_router(uploads.router)
 app.include_router(reports.router)
 app.include_router(agent.router)
+app.include_router(admin_overview.router)
 
 
 @app.get("/health", tags=["meta"])

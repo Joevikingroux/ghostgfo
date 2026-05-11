@@ -1,0 +1,446 @@
+import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import axios from "axios";
+import { getAdminOverview } from "@/lib/api";
+import { formatPeriod } from "@/lib/format";
+import type { AdminClientCard, AdminOverview, SystemStatus } from "@/lib/types";
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function timeAgo(iso: string): string {
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
+const RATING_STROKE: Record<string, string> = {
+  excellent: "text-emerald-400",
+  good:      "text-teal-400",
+  fair:      "text-amber-400",
+  poor:      "text-orange-400",
+  critical:  "text-red-500",
+};
+
+const RATING_TEXT: Record<string, string> = {
+  excellent: "text-emerald-400",
+  good:      "text-teal-400",
+  fair:      "text-amber-400",
+  poor:      "text-orange-400",
+  critical:  "text-red-400",
+};
+
+const PLAN_STYLE: Record<string, string> = {
+  starter:      "bg-zinc-800 border-zinc-700 text-zinc-300",
+  professional: "bg-teal-950 border-teal-800 text-teal-300",
+  premium:      "bg-violet-950 border-violet-800 text-violet-300",
+};
+
+const HEALTH_BAR_COLOR: Record<string, string> = {
+  excellent: "bg-emerald-500",
+  good:      "bg-teal-500",
+  fair:      "bg-amber-500",
+  poor:      "bg-orange-500",
+  critical:  "bg-red-500",
+};
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+function HealthRing({ score, rating }: { score: number | null; rating: string | null }) {
+  if (score == null) {
+    return (
+      <div className="w-11 h-11 rounded-full bg-zinc-800 flex items-center justify-center text-xs text-zinc-600 shrink-0">
+        —
+      </div>
+    );
+  }
+  const r = 17;
+  const circ = 2 * Math.PI * r;
+  const strokeClass = RATING_STROKE[rating ?? ""] ?? "text-zinc-500";
+
+  return (
+    <div className="relative w-11 h-11 shrink-0">
+      <svg viewBox="0 0 40 40" className="w-full h-full -rotate-90">
+        <circle cx="20" cy="20" r={r} fill="none" strokeWidth="3.5"
+          stroke="currentColor" className="text-zinc-800" />
+        <circle cx="20" cy="20" r={r} fill="none" strokeWidth="3.5"
+          stroke="currentColor" className={strokeClass} strokeLinecap="round"
+          strokeDasharray={`${(score / 100) * circ} ${circ}`} />
+      </svg>
+      <span className={`absolute inset-0 flex items-center justify-center text-[11px] font-bold ${strokeClass}`}>
+        {score}
+      </span>
+    </div>
+  );
+}
+
+function StatTile({
+  label, value, sub, accent,
+}: {
+  label: string;
+  value: string | number;
+  sub?: string;
+  accent?: "teal" | "amber" | "violet";
+}) {
+  const gradients: Record<string, string> = {
+    teal:   "bg-gradient-to-br from-teal-500/15 to-cyan-500/5 border-teal-500/25",
+    amber:  "bg-gradient-to-br from-amber-500/15 to-orange-500/5 border-amber-500/25",
+    violet: "bg-gradient-to-br from-violet-500/15 to-purple-500/5 border-violet-500/25",
+  };
+  const valueColors: Record<string, string> = {
+    teal:   "brand-text",
+    amber:  "text-amber-400",
+    violet: "text-violet-400",
+  };
+
+  return (
+    <div className={`rounded-xl border p-5 ${accent ? gradients[accent] : "bg-zinc-900 border-white/8"}`}>
+      <p className="text-[11px] text-zinc-500 uppercase tracking-wider mb-1.5">{label}</p>
+      <p className={`font-heading text-3xl font-bold ${accent ? valueColors[accent] : "text-white"}`}>
+        {value}
+      </p>
+      {sub && <p className="text-xs text-zinc-500 mt-1.5">{sub}</p>}
+    </div>
+  );
+}
+
+function SystemStatusBar() {
+  const [status, setStatus] = useState<SystemStatus | null>(null);
+  const [age, setAge] = useState(0);
+
+  const fetchStatus = useCallback(() => {
+    axios
+      .get<SystemStatus>("/api/agent/system-status", { withCredentials: true })
+      .then((r) => { setStatus(r.data); setAge(0); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetchStatus();
+    const poll = setInterval(fetchStatus, 30_000);
+    const tick = setInterval(() => setAge((a) => a + 1), 1_000);
+    return () => { clearInterval(poll); clearInterval(tick); };
+  }, [fetchStatus]);
+
+  const LABELS: Partial<Record<keyof SystemStatus, string>> = {
+    database:   "Database",
+    redis:      "Redis",
+    payfast:    "PayFast",
+    resend:     "Email",
+    openrouter: "LLM",
+    agent_key:  "Agent Key",
+  };
+
+  if (!status) return null;
+
+  const allOk = (Object.values(status) as { ok: boolean }[]).every((c) => c.ok);
+
+  return (
+    <div className="rounded-xl border border-white/8 bg-zinc-900/60 px-5 py-3 flex items-center gap-5 flex-wrap">
+      <div className="flex items-center gap-2 shrink-0">
+        <span className={`inline-block w-2 h-2 rounded-full animate-pulse ${allOk ? "bg-emerald-400" : "bg-red-400"}`} />
+        <span className="text-xs font-medium text-zinc-300">Services</span>
+        <span className="text-xs text-zinc-600">· {age}s ago</span>
+      </div>
+      <div className="h-4 w-px bg-white/10 hidden sm:block" />
+      <div className="flex items-center gap-5 flex-wrap">
+        {(Object.keys(LABELS) as (keyof SystemStatus)[]).map((k) => (
+          <div key={k} className="flex items-center gap-1.5">
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${status[k].ok ? "bg-emerald-400" : "bg-red-400"}`} />
+            <span className={`text-xs ${status[k].ok ? "text-zinc-400" : "text-red-400 font-medium"}`}>
+              {LABELS[k]}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function HealthDistributionBar({ distribution }: { distribution: Record<string, number> }) {
+  const order = ["excellent", "good", "fair", "poor", "critical"];
+  const total = Object.values(distribution).reduce((s, n) => s + n, 0) || 1;
+  const hasData = Object.values(distribution).some((n) => n > 0);
+
+  if (!hasData) return <p className="text-xs text-zinc-600">No reports yet.</p>;
+
+  return (
+    <div className="space-y-2.5">
+      {order
+        .filter((r) => (distribution[r] ?? 0) > 0)
+        .map((r) => {
+          const n = distribution[r] ?? 0;
+          const pct = (n / total) * 100;
+          return (
+            <div key={r} className="flex items-center gap-3">
+              <span className="text-xs text-zinc-400 w-16 capitalize">{r}</span>
+              <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-700 ${HEALTH_BAR_COLOR[r]}`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <span className="text-xs text-zinc-500 w-3 text-right font-medium">{n}</span>
+            </div>
+          );
+        })}
+    </div>
+  );
+}
+
+function ClientCard({ c }: { c: AdminClientCard }) {
+  return (
+    <div className="rounded-xl border border-white/8 bg-zinc-900 p-4 hover:border-white/15 transition-colors">
+      <div className="flex items-start gap-3">
+        <HealthRing score={c.health_score} rating={c.health_rating} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-medium text-sm text-white truncate leading-tight">{c.name}</span>
+            {c.payroll_pending && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-950 border border-amber-800 text-amber-300 shrink-0">
+                Payroll
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+            <span className={`text-[10px] px-1.5 py-0.5 rounded border capitalize ${PLAN_STYLE[c.plan] ?? PLAN_STYLE.starter}`}>
+              {c.plan}
+            </span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+              c.data_source === "evolution"
+                ? "bg-emerald-950 text-emerald-400"
+                : "bg-blue-950 text-blue-400"
+            }`}>
+              {c.data_source === "evolution" ? "Auto" : "Upload"}
+            </span>
+            {c.health_rating && (
+              <span className={`text-[10px] capitalize ${RATING_TEXT[c.health_rating] ?? "text-zinc-400"}`}>
+                {c.health_rating}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between text-xs text-zinc-500">
+        <span>
+          {c.last_report_month
+            ? `${formatPeriod(c.last_report_month, c.last_report_year!)}`
+            : "No report yet"}
+        </span>
+        {c.agent_last_sync ? (
+          <span className={`flex items-center gap-1 ${c.agent_active ? "text-emerald-500" : "text-zinc-600"}`}>
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${c.agent_active ? "bg-emerald-500" : "bg-zinc-600"}`} />
+            {timeAgo(c.agent_last_sync)}
+          </span>
+        ) : (
+          c.data_source === "evolution" && (
+            <span className="text-zinc-700">Agent not synced</span>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main page ───────────────────────────────────────────────────────────────
+
+export default function AdminDashboard() {
+  const [data, setData] = useState<AdminOverview | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [age, setAge] = useState(0);
+
+  const fetchData = useCallback(() => {
+    setError(false);
+    getAdminOverview()
+      .then((r) => { setData(r.data); setAge(0); })
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+    const poll = setInterval(fetchData, 60_000);
+    const tick = setInterval(() => setAge((a) => a + 1), 1_000);
+    return () => { clearInterval(poll); clearInterval(tick); };
+  }, [fetchData]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 text-zinc-500 text-sm">
+        <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
+        Loading dashboard…
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="card p-6 text-center space-y-3">
+        <p className="text-red-400 text-sm">Failed to load dashboard.</p>
+        <button onClick={fetchData} className="btn-primary text-xs px-4 py-2">Retry</button>
+      </div>
+    );
+  }
+
+  const mrrFmt = `R ${data.mrr.toLocaleString("en-ZA")}`;
+  const planSub = Object.entries(data.plans)
+    .sort(([a], [b]) => ["starter", "professional", "premium"].indexOf(a) - ["starter", "professional", "premium"].indexOf(b))
+    .map(([p, n]) => `${n} ${p}`)
+    .join(" · ");
+  const reportGap = data.active_clients - data.reports_this_month;
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="font-heading text-2xl font-bold">Operator Dashboard</h1>
+          <p className="text-zinc-500 text-xs mt-0.5">
+            All client metrics · refreshed {age}s ago
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="flex items-center gap-1.5 text-xs text-emerald-400">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            Live
+          </span>
+          <button
+            onClick={fetchData}
+            className="btn-ghost text-xs px-3 py-1.5 border border-surface-border"
+          >
+            Refresh
+          </button>
+          <Link to="/admin/manage" className="btn-primary text-xs px-3 py-1.5">
+            Clients &amp; Users →
+          </Link>
+        </div>
+      </div>
+
+      {/* Stat tiles */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatTile
+          label="Monthly Revenue"
+          value={mrrFmt}
+          sub={planSub || "no active plans"}
+          accent="teal"
+        />
+        <StatTile
+          label="Active Clients"
+          value={data.active_clients}
+          sub={data.inactive_clients > 0 ? `${data.inactive_clients} inactive` : "all active"}
+        />
+        <StatTile
+          label="Reports This Month"
+          value={data.reports_this_month}
+          sub={reportGap > 0 ? `${reportGap} not yet generated` : "all up to date"}
+        />
+        <StatTile
+          label="Payroll Pending"
+          value={data.payroll_pending_count}
+          sub="waiting for upload"
+          accent={data.payroll_pending_count > 0 ? "amber" : undefined}
+        />
+      </div>
+
+      {/* System status */}
+      <SystemStatusBar />
+
+      {/* Main grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Client cards — 2 cols */}
+        <div className="lg:col-span-2 space-y-3">
+          <h2 className="font-heading font-bold text-[11px] uppercase tracking-wider text-zinc-500">
+            Clients — {data.active_clients} active
+          </h2>
+          {data.clients.length === 0 ? (
+            <div className="card p-10 text-center text-zinc-600 text-sm">
+              No active clients yet.{" "}
+              <Link to="/admin/manage" className="text-teal-400 hover:underline">
+                Add your first client →
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {data.clients.map((c) => (
+                <ClientCard key={c.id} c={c} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-5">
+          {/* Health distribution */}
+          <div className="card p-5">
+            <h3 className="font-heading font-bold text-[11px] uppercase tracking-wider text-zinc-500 mb-4">
+              Portfolio Health
+            </h3>
+            <HealthDistributionBar distribution={data.health_distribution} />
+          </div>
+
+          {/* Recent reports feed */}
+          <div className="card p-5">
+            <h3 className="font-heading font-bold text-[11px] uppercase tracking-wider text-zinc-500 mb-4">
+              Recent Reports
+            </h3>
+            {data.recent_reports.length === 0 ? (
+              <p className="text-xs text-zinc-600">No reports generated yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {data.recent_reports.map((r, i) => (
+                  <div key={i} className="flex items-start justify-between gap-2 py-2 border-b border-white/5 last:border-0">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-zinc-200 truncate leading-tight">{r.company_name}</p>
+                      <p className="text-[11px] text-zinc-500 mt-0.5">{formatPeriod(r.period_month, r.period_year)}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      {r.health_score != null && r.health_rating ? (
+                        <span className={`text-xs font-medium ${RATING_TEXT[r.health_rating] ?? "text-zinc-400"}`}>
+                          {r.health_score}/100
+                        </span>
+                      ) : (
+                        <span className="text-xs text-zinc-600">—</span>
+                      )}
+                      <p className="text-[10px] text-zinc-600 mt-0.5">{timeAgo(r.generated_at)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Plan breakdown */}
+          <div className="card p-5">
+            <h3 className="font-heading font-bold text-[11px] uppercase tracking-wider text-zinc-500 mb-4">
+              Plan Breakdown
+            </h3>
+            <div className="space-y-2.5">
+              {(["starter", "professional", "premium"] as const).map((key) => {
+                const count = data.plans[key] ?? 0;
+                const prices = { starter: "R500", professional: "R900", premium: "R1,500" };
+                return (
+                  <div key={key} className="flex items-center justify-between">
+                    <span className={`text-[11px] px-2 py-0.5 rounded border capitalize ${PLAN_STYLE[key]}`}>
+                      {key}
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-bold text-white">{count}</span>
+                      <span className="text-xs text-zinc-600">{prices[key]}/mo</span>
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="pt-2 mt-1 border-t border-white/8 flex items-center justify-between">
+                <span className="text-xs text-zinc-500">Total MRR</span>
+                <span className="text-sm font-bold brand-text">{mrrFmt}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

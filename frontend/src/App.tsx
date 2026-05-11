@@ -13,6 +13,7 @@ import UploadPage from "@/pages/Upload";
 import ReportsPage from "@/pages/Reports";
 import SettingsPage from "@/pages/Settings";
 import AdminPage from "@/pages/Admin";
+import AdminDashboard from "@/pages/AdminDashboard";
 import SetupPage from "@/pages/Setup";
 import Layout from "@/components/Layout";
 
@@ -85,7 +86,8 @@ export default function App() {
           <Route path="/upload" element={<UploadPage />} />
           <Route path="/reports" element={<ReportsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/admin" element={<AdminPage />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/manage" element={<AdminPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
