@@ -86,6 +86,15 @@ export interface Metrics {
   health_rating: "excellent" | "good" | "fair" | "poor" | "critical";
   health_flags: string[];
   warnings: string[];
+  // Premium-only
+  yoy_available?: boolean;
+  yoy_revenue_change_pct?: number | null;
+  yoy_gross_profit_change_pct?: number | null;
+  yoy_cost_change_pct?: number | null;
+  yoy_prior_year_revenue?: number;
+  quarterly_revenue?: number;
+  quarterly_period?: string;
+  anomalies?: string[];
 }
 
 export interface Report {
@@ -102,6 +111,8 @@ export interface Report {
   narrative_payroll: string | null;
   narrative_cash: string | null;
   narrative_actions: string | null;
+  narrative_trend: string | null;
+  narrative_custom: string | null;
   pdf_path: string | null;
   email_sent: boolean;
   generated_at: string | null;

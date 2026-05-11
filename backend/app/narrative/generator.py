@@ -15,7 +15,7 @@ from app.narrative.tone import LANG_EN, currency
 
 log = get_logger(__name__)
 
-SECTIONS = ["summary", "revenue", "costs", "debtors", "payroll", "cash", "actions"]
+SECTIONS = ["summary", "revenue", "costs", "debtors", "payroll", "cash", "actions", "trend"]
 
 
 @dataclass
@@ -27,6 +27,7 @@ class Narrative:
     payroll: str
     cash: str
     actions: str
+    trend: str = ""
 
 
 class NarrativeGenerator:
@@ -35,15 +36,26 @@ class NarrativeGenerator:
         metrics: dict[str, Any],
         *,
         language: str = LANG_EN,
+        plan: str = "starter",
     ) -> Narrative:
+        plan = (plan or "starter").lower()
+
         if not settings.openrouter_api_key:
             log.warning("narrative.stub_mode", reason="OPENROUTER_API_KEY not set")
-            return _stub_narrative(metrics)
+            return _stub_narrative(metrics, plan=plan)
 
         from app.narrative.openrouter import chat_completion
 
         parts: dict[str, str] = {}
         for section in SECTIONS:
+            # Gate payroll section to Professional+
+            if section == "payroll" and plan == "starter":
+                parts[section] = ""
+                continue
+            # Trend section only for Premium
+            if section == "trend" and plan != "premium":
+                parts[section] = ""
+                continue
             if section == "summary":
                 msgs = prompts.build_summary_prompt(metrics, lang=language)
             else:
@@ -52,7 +64,7 @@ class NarrativeGenerator:
                 parts[section] = chat_completion(msgs)
             except Exception as exc:
                 log.error("narrative.llm_error", section=section, error=str(exc))
-                parts[section] = _stub_section(section, metrics)
+                parts[section] = _stub_section(section, metrics, plan=plan)
 
         return Narrative(**parts)
 
@@ -62,7 +74,7 @@ class NarrativeGenerator:
 # ---------------------------------------------------------------------------
 
 
-def _stub_section(section: str, m: dict[str, Any]) -> str:
+def _stub_section(section: str, m: dict[str, Any], *, plan: str = "starter") -> str:
     name = m.get("company_name", "the business")
     month = m.get("period_month", "?")
     year = m.get("period_year", "?")
@@ -104,6 +116,8 @@ def _stub_section(section: str, m: dict[str, Any]) -> str:
             f"Debtor days: {m.get('debtor_days', 0):.0f}."
         )
     if section == "payroll":
+        if plan == "starter":
+            return ""
         if m.get("payroll_gross_total", 0) == 0:
             return "No payroll data was provided for this period."
         return (
@@ -153,10 +167,30 @@ def _stub_section(section: str, m: dict[str, Any]) -> str:
                 "1. Continue monitoring debtor days and cash runway weekly."
             )
         return "\n".join(lines)
+    if section == "trend":
+        if plan != "premium" or not m.get("yoy_available"):
+            return ""
+        yoy_rev = m.get("yoy_revenue_change_pct")
+        prior_rev = m.get("yoy_prior_year_revenue", 0)
+        year = m.get("period_year", "")
+        prior_year = int(year) - 1 if year else ""
+        q_rev = m.get("quarterly_revenue")
+        q_period = m.get("quarterly_period", "")
+        parts = [
+            f"Year-on-year comparison ({prior_year} vs {year}): "
+            f"revenue was {currency(prior_rev)} in the same month last year"
+            + (f", a {yoy_rev:+.1f}% change." if yoy_rev is not None else "."),
+        ]
+        if q_rev:
+            parts.append(f"{q_period} total revenue to date: {currency(q_rev)}.")
+        anomalies = m.get("anomalies", [])
+        if anomalies:
+            parts.append("Anomalies detected: " + "; ".join(anomalies) + ".")
+        return " ".join(parts)
     return f"[{section} section not yet generated]"
 
 
-def _stub_narrative(m: dict[str, Any]) -> Narrative:
+def _stub_narrative(m: dict[str, Any], *, plan: str = "starter") -> Narrative:
     return Narrative(
-        **{section: _stub_section(section, m) for section in SECTIONS}
+        **{section: _stub_section(section, m, plan=plan) for section in SECTIONS}
     )

@@ -42,6 +42,8 @@ class ReportOut(BaseModel):
     narrative_payroll: str | None
     narrative_cash: str | None
     narrative_actions: str | None
+    narrative_trend: str | None
+    narrative_custom: str | None
     pdf_path: str | None
     email_sent: bool
     generated_at: datetime | None

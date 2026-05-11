@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { font-family: Inter, Arial, sans-serif; background:#000; color:#e4e4e7; margin:0; padding:0; }
+  .wrap { max-width:560px; margin:40px auto; background:#09090b; border:1px solid #27272a; border-radius:12px; overflow:hidden; }
+  .header { background:linear-gradient(135deg,#2DD4BF,#06B6D4); padding:32px; text-align:center; }
+  .header h1 { margin:0; font-size:24px; font-weight:800; color:#000; letter-spacing:-0.5px; }
+  .header p { margin:6px 0 0; font-size:13px; color:#0f766e; }
+  .body { padding:32px; }
+  .body h2 { font-size:18px; font-weight:700; color:#f4f4f5; margin:0 0 12px; }
+  .body p { font-size:14px; color:#a1a1aa; line-height:1.6; margin:0 0 16px; }
+  .alert-box { background:#450a0a; border:1px solid #7f1d1d; border-radius:8px; padding:20px; margin:16px 0; }
+  .alert-box .label { font-size:12px; color:#fca5a5; text-transform:uppercase; letter-spacing:0.5px; margin:0 0 4px; }
+  .alert-box .value { font-size:22px; font-weight:800; color:#fecaca; margin:0 0 4px; }
+  .alert-box .sub { font-size:13px; color:#f87171; margin:0; }
+  .btn { display:inline-block; background:linear-gradient(135deg,#2DD4BF,#06B6D4); color:#000; font-weight:700; font-size:14px; padding:14px 28px; border-radius:8px; text-decoration:none; margin:8px 0 16px; }
+  .footer { padding:20px 32px; border-top:1px solid #1c1c1e; }
+  .footer p { font-size:12px; color:#52525b; margin:0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <h1>Ghost CFO</h1>
+    <p>Overdue Invoice Alert</p>
+  </div>
+  <div class="body">
+    <h2>{{ company_name }} — Overdue Invoices</h2>
+    <p>Hi {{ to_name }}, you have customers with invoices overdue by more than 60 days that need your attention.</p>
+
+    <div class="alert-box">
+      <p class="label">Overdue invoices (60+ days)</p>
+      <p class="value">{{ overdue_count }} invoice{{ 's' if overdue_count != 1 else '' }}</p>
+      <p class="sub">Total outstanding: {{ overdue_value }}</p>
+    </div>
+
+    <p>Your average debtor collection period is currently <strong style="color:#d4d4d8">{{ debtor_days }} days</strong>. Collecting these overdue amounts quickly will improve your cash position.</p>
+
+    <p><strong style="color:#d4d4d8">Recommended action:</strong> Contact each overdue customer this week and arrange payment. Even partial payments help your cash runway.</p>
+
+    <a href="{{ portal_url }}/reports" class="btn">View full report →</a>
+  </div>
+  <div class="footer">
+    <p>Powered by Numbers10 Technology Solutions &nbsp;|&nbsp; numbers10.co.za</p>
+    <p style="margin-top:4px">You receive these alerts because your account is on the Professional or Premium plan.</p>
+  </div>
+</div>
+</body>
+</html>

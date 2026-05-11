@@ -112,6 +112,27 @@ def _fmt(m: dict[str, Any]) -> str:
         f"Flags: {'; '.join(m.get('health_flags', [])) or 'none'}",
     ]
 
+    # Premium: YoY and anomaly data
+    if m.get("yoy_available"):
+        lines += [
+            "",
+            "— YEAR-ON-YEAR COMPARISON (PREMIUM) —",
+            f"Same month prior year revenue: {currency(m.get('yoy_prior_year_revenue', 0))}",
+            f"YoY revenue change: {m.get('yoy_revenue_change_pct', 0):+.1f}%",
+            f"YoY gross profit change: {m.get('yoy_gross_profit_change_pct', 0):+.1f}%",
+            f"YoY cost change: {m.get('yoy_cost_change_pct', 0):+.1f}%",
+        ]
+    if m.get("quarterly_revenue"):
+        lines += [
+            f"Quarter ({m.get('quarterly_period', '')}): {currency(m.get('quarterly_revenue', 0))}",
+        ]
+    if m.get("anomalies"):
+        lines += [
+            "",
+            "— ANOMALIES DETECTED —",
+            *[f"- {a}" for a in m["anomalies"]],
+        ]
+
     return "\n".join(lines)
 
 
@@ -149,6 +170,12 @@ _INSTRUCTIONS_EN = {
         "should take this month, most urgent first. Be concrete — name amounts, "
         "dates and specific customers where possible. One sentence per action."
     ),
+    "trend": (
+        "Write a 3–4 sentence year-on-year trend analysis for this Premium client. "
+        "Compare this month's revenue and profit to the same month last year. "
+        "If quarterly data is available, summarise the quarter. "
+        "Flag any anomalies detected. Be direct about whether performance is improving or declining."
+    ),
 }
 
 _INSTRUCTIONS_AF = {
@@ -185,6 +212,12 @@ _INSTRUCTIONS_AF = {
         "besigheidseienaar hierdie maand moet neem, die mees dringende eerste. "
         "Wees konkreet — noem bedrae, datums en spesifieke kliënte waar moontlik. "
         "Een sin per aksie."
+    ),
+    "trend": (
+        "Skryf 'n 3–4 sin jaar-op-jaar tendensanalise vir hierdie Premium-kliënt. "
+        "Vergelyk hierdie maand se inkomste en wins met dieselfde maand verlede jaar. "
+        "As kwartaaldata beskikbaar is, som die kwartaal op. "
+        "Merk enige afwykings wat opgespoor is. Wees direk oor of prestasie verbeter of afneem."
     ),
 }
 

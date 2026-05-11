@@ -110,6 +110,105 @@ def send_report_email(
         return False
 
 
+def send_debtor_alert_email(
+    *,
+    to_email: str,
+    to_name: str,
+    company_name: str,
+    overdue_count: int,
+    overdue_value: float,
+    debtor_days: float,
+    portal_url: str,
+) -> bool:
+    """Send a debtor overdue alert email (Professional+)."""
+    if not settings.resend_api_key:
+        log.warning("email.skipped", reason="RESEND_API_KEY not set")
+        return False
+    try:
+        import resend
+    except ImportError:
+        log.error("email.import_error", msg="resend package not installed")
+        return False
+
+    resend.api_key = settings.resend_api_key
+    html_body = _jinja.get_template("email_debtor_alert.html").render(
+        to_name=to_name,
+        company_name=company_name,
+        overdue_count=overdue_count,
+        overdue_value=_currency(overdue_value),
+        debtor_days=round(debtor_days),
+        portal_url=portal_url,
+    )
+    subject = f"Ghost CFO — {company_name} — Overdue Invoice Alert"
+    try:
+        response = resend.Emails.send({
+            "from": f"{settings.from_name} <{settings.from_email}>",
+            "to": [to_email],
+            "subject": subject,
+            "html": html_body,
+        })
+        log.info("debtor_alert.sent", to=to_email, id=response.get("id"), company=company_name)
+        return True
+    except Exception as exc:
+        log.error("debtor_alert.failed", to=to_email, error=str(exc))
+        return False
+
+
+def send_weekly_pulse_email(
+    *,
+    to_email: str,
+    to_name: str,
+    company_name: str,
+    cash_balance: float,
+    cash_runway_weeks: float,
+    revenue_current: float,
+    revenue_change_pct: float,
+    overdue_count: int,
+    overdue_value: float,
+    period_month: int,
+    period_year: int,
+    portal_url: str,
+) -> bool:
+    """Send a weekly cash pulse email (Professional+)."""
+    if not settings.resend_api_key:
+        log.warning("email.skipped", reason="RESEND_API_KEY not set")
+        return False
+    try:
+        import resend
+    except ImportError:
+        log.error("email.import_error", msg="resend package not installed")
+        return False
+
+    resend.api_key = settings.resend_api_key
+    month_name = calendar.month_name[period_month]
+    html_body = _jinja.get_template("email_weekly_pulse.html").render(
+        to_name=to_name,
+        company_name=company_name,
+        cash_balance=_currency(cash_balance),
+        cash_runway_weeks=round(cash_runway_weeks, 1),
+        revenue_current=_currency(revenue_current),
+        revenue_change_pct=revenue_change_pct,
+        overdue_count=overdue_count,
+        overdue_value=_currency(overdue_value),
+        month_name=month_name,
+        period_year=period_year,
+        portal_url=portal_url,
+    )
+    subject = f"Ghost CFO — {company_name} — Weekly Cash Pulse"
+    try:
+        response = resend.Emails.send({
+            "from": f"{settings.from_name} <{settings.from_email}>",
+            "to": [to_email],
+            "subject": subject,
+            "html": html_body,
+        })
+        log.info("weekly_pulse.sent", to=to_email, id=response.get("id"), company=company_name)
+        return True
+    except Exception as exc:
+        log.error("weekly_pulse.failed", to=to_email, error=str(exc))
+        return False
+
+
 def send_welcome_email(
     *,
     to_email: str,

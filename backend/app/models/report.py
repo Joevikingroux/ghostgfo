@@ -51,6 +51,8 @@ class Report(Base, UUIDPK, Timestamps):
     narrative_payroll: Mapped[str | None] = mapped_column(Text)
     narrative_cash: Mapped[str | None] = mapped_column(Text)
     narrative_actions: Mapped[str | None] = mapped_column(Text)
+    narrative_trend: Mapped[str | None] = mapped_column(Text)     # Premium: YoY + quarterly
+    narrative_custom: Mapped[str | None] = mapped_column(Text)    # Premium: admin commentary
 
     pdf_path: Mapped[str | None] = mapped_column(Text)
 

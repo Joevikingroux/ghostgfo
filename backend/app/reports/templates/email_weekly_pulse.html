@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { font-family: Inter, Arial, sans-serif; background:#000; color:#e4e4e7; margin:0; padding:0; }
+  .wrap { max-width:560px; margin:40px auto; background:#09090b; border:1px solid #27272a; border-radius:12px; overflow:hidden; }
+  .header { background:linear-gradient(135deg,#2DD4BF,#06B6D4); padding:32px; text-align:center; }
+  .header h1 { margin:0; font-size:24px; font-weight:800; color:#000; letter-spacing:-0.5px; }
+  .header p { margin:6px 0 0; font-size:13px; color:#0f766e; }
+  .body { padding:32px; }
+  .body h2 { font-size:18px; font-weight:700; color:#f4f4f5; margin:0 0 12px; }
+  .body p { font-size:14px; color:#a1a1aa; line-height:1.6; margin:0 0 16px; }
+  .metrics { display:grid; gap:12px; margin:20px 0; }
+  .metric { background:#111113; border:1px solid #27272a; border-radius:8px; padding:16px; }
+  .metric .label { font-size:12px; color:#71717a; text-transform:uppercase; letter-spacing:0.5px; margin:0 0 4px; }
+  .metric .value { font-size:20px; font-weight:800; color:#f4f4f5; margin:0; }
+  .metric .sub { font-size:12px; color:#71717a; margin:4px 0 0; }
+  .metric.good .value { color:#34d399; }
+  .metric.warn .value { color:#fbbf24; }
+  .metric.bad .value { color:#f87171; }
+  .btn { display:inline-block; background:linear-gradient(135deg,#2DD4BF,#06B6D4); color:#000; font-weight:700; font-size:14px; padding:14px 28px; border-radius:8px; text-decoration:none; margin:8px 0 16px; }
+  .footer { padding:20px 32px; border-top:1px solid #1c1c1e; }
+  .footer p { font-size:12px; color:#52525b; margin:0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <h1>Ghost CFO</h1>
+    <p>Weekly Cash Pulse — {{ month_name }} {{ period_year }}</p>
+  </div>
+  <div class="body">
+    <h2>{{ company_name }} — Weekly Update</h2>
+    <p>Hi {{ to_name }}, here is your quick financial pulse for this week.</p>
+
+    <div class="metrics">
+      <div class="metric {% if cash_runway_weeks >= 12 %}good{% elif cash_runway_weeks >= 8 %}warn{% else %}bad{% endif %}">
+        <p class="label">Cash Balance</p>
+        <p class="value">{{ cash_balance }}</p>
+        <p class="sub">~{{ cash_runway_weeks }} weeks runway at current spend</p>
+      </div>
+
+      <div class="metric {% if revenue_change_pct >= 0 %}good{% else %}warn{% endif %}">
+        <p class="label">Revenue ({{ month_name }})</p>
+        <p class="value">{{ revenue_current }}</p>
+        <p class="sub">{{ '%+.1f'|format(revenue_change_pct) }}% vs last month</p>
+      </div>
+
+      {% if overdue_count > 0 %}
+      <div class="metric bad">
+        <p class="label">Overdue Invoices</p>
+        <p class="value">{{ overdue_count }} invoice{{ 's' if overdue_count != 1 else '' }}</p>
+        <p class="sub">{{ overdue_value }} outstanding 60+ days</p>
+      </div>
+      {% else %}
+      <div class="metric good">
+        <p class="label">Overdue Invoices</p>
+        <p class="value">None</p>
+        <p class="sub">All customer invoices are current</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <a href="{{ portal_url }}/reports" class="btn">View full report →</a>
+  </div>
+  <div class="footer">
+    <p>Powered by Numbers10 Technology Solutions &nbsp;|&nbsp; numbers10.co.za</p>
+    <p style="margin-top:4px">Weekly pulse delivered every Monday — Professional & Premium plans.</p>
+  </div>
+</div>
+</body>
+</html>

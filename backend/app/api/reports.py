@@ -20,6 +20,10 @@ from app.schemas.upload import ReportListItem, ReportOut
 class SendEmailBody(BaseModel):
     extra_emails: list[EmailStr] = []
 
+
+class CustomCommentaryBody(BaseModel):
+    narrative_custom: str
+
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 
@@ -207,3 +211,25 @@ def send_email_manual(
 
     all_to = [recipient] + extra
     return {"ok": True, "to": all_to}
+
+
+@router.patch("/{report_id}/commentary", response_model=dict)
+def update_commentary(
+    report_id: uuid.UUID,
+    body: CustomCommentaryBody,
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Admin: set/update the custom commentary section for a Premium report."""
+    report = db.get(Report, report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    company = report.company
+    if not company or (company.plan or "starter").lower() != "premium":
+        raise HTTPException(
+            status_code=403,
+            detail="Custom commentary is only available on Premium plans",
+        )
+    report.narrative_custom = body.narrative_custom.strip() or None
+    db.commit()
+    return {"ok": True, "report_id": str(report_id)}
