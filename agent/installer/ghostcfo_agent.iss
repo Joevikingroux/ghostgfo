@@ -46,49 +46,59 @@ MinVersion=10.0
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 ; ---------------------------------------------------------------------------
-; Custom wizard page — collect API key + SQL Server details
+; Two wizard pages — page 1: Ghost CFO credentials, page 2: SQL connection
+; (splitting avoids field overflow / unclickable password box on one page)
 ; ---------------------------------------------------------------------------
 
 [Code]
 var
-  ConfigPage: TInputQueryWizardPage;
+  CredPage: TInputQueryWizardPage;   { API Key + AES Encryption Key }
+  SQLPage:  TInputQueryWizardPage;   { SQL Server, DB, Username, Password }
 
 procedure InitializeWizard;
 begin
-  ConfigPage := CreateInputQueryPage(
+  { Page 1 — Ghost CFO credentials provided by Numbers10 }
+  CredPage := CreateInputQueryPage(
     wpWelcome,
-    'Ghost CFO Configuration',
-    'Enter the details provided by Numbers10 Technology Solutions.',
+    'Ghost CFO Credentials',
+    'Enter the API Key and Encryption Key provided by Numbers10 Technology Solutions.',
     ''
   );
-  ConfigPage.Add('API Key (provided by Numbers10):', False);
-  ConfigPage.Add('AES Encryption Key (provided by Numbers10):', False);
-  ConfigPage.Add('SQL Server name or IP\instance:', False);
-  ConfigPage.Add('Pastel Evolution database name:', False);
-  ConfigPage.Add('SQL Server username:', False);
-  ConfigPage.Add('SQL Server password:', True);
-  ConfigPage.Add('Ghost CFO portal URL:', False);
+  CredPage.Add('API Key:', False);
+  CredPage.Add('AES Encryption Key:', False);
 
-  ConfigPage.Values[6] := 'https://ghostcfo.numbers10.co.za';
+  { Page 2 — SQL Server connection details }
+  SQLPage := CreateInputQueryPage(
+    CredPage.ID,
+    'SQL Server Connection',
+    'Enter the Pastel Evolution SQL Server details for this client.',
+    ''
+  );
+  SQLPage.Add('SQL Server name or IP\instance  (e.g. SERVER\SQLEXPRESS):', False);
+  SQLPage.Add('Pastel Evolution database name:', False);
+  SQLPage.Add('SQL Server username:', False);
+  SQLPage.Add('SQL Server password:', True);
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
 begin
   Result := True;
-  if CurPageID = ConfigPage.ID then begin
-    if Trim(ConfigPage.Values[0]) = '' then begin
+  if CurPageID = CredPage.ID then begin
+    if Trim(CredPage.Values[0]) = '' then begin
       MsgBox('API Key is required.', mbError, MB_OK);
       Result := False;
-    end else if Trim(ConfigPage.Values[1]) = '' then begin
+    end else if Trim(CredPage.Values[1]) = '' then begin
       MsgBox('AES Encryption Key is required.', mbError, MB_OK);
       Result := False;
-    end else if Trim(ConfigPage.Values[2]) = '' then begin
+    end;
+  end else if CurPageID = SQLPage.ID then begin
+    if Trim(SQLPage.Values[0]) = '' then begin
       MsgBox('SQL Server name is required.', mbError, MB_OK);
       Result := False;
-    end else if Trim(ConfigPage.Values[3]) = '' then begin
+    end else if Trim(SQLPage.Values[1]) = '' then begin
       MsgBox('Database name is required.', mbError, MB_OK);
       Result := False;
-    end else if Trim(ConfigPage.Values[4]) = '' then begin
+    end else if Trim(SQLPage.Values[2]) = '' then begin
       MsgBox('SQL Server username is required.', mbError, MB_OK);
       Result := False;
     end;
@@ -96,28 +106,25 @@ begin
 end;
 
 function GetAPIKey(Param: String): String;
-begin Result := Trim(ConfigPage.Values[0]); end;
+begin Result := Trim(CredPage.Values[0]); end;
 
 function GetEncKey(Param: String): String;
-begin Result := Trim(ConfigPage.Values[1]); end;
+begin Result := Trim(CredPage.Values[1]); end;
 
 function GetSQLServer(Param: String): String;
-begin Result := Trim(ConfigPage.Values[2]); end;
+begin Result := Trim(SQLPage.Values[0]); end;
 
 function GetDBName(Param: String): String;
-begin Result := Trim(ConfigPage.Values[3]); end;
+begin Result := Trim(SQLPage.Values[1]); end;
 
 function GetSQLUser(Param: String): String;
-begin Result := Trim(ConfigPage.Values[4]); end;
+begin Result := Trim(SQLPage.Values[2]); end;
 
 function GetSQLPass(Param: String): String;
-begin Result := Trim(ConfigPage.Values[5]); end;
+begin Result := Trim(SQLPage.Values[3]); end;
 
 function GetBaseURL(Param: String): String;
-begin
-  Result := Trim(ConfigPage.Values[6]);
-  if Result = '' then Result := 'https://ghostcfo.numbers10.co.za';
-end;
+begin Result := 'https://ghostcfo.numbers10.co.za'; end;
 
 [Files]
 ; Main executable (compiled by PyInstaller)
