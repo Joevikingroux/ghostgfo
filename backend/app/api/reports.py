@@ -4,8 +4,9 @@ from __future__ import annotations
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 from fastapi.responses import FileResponse
+from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -14,6 +15,10 @@ from app.core.database import get_db
 from app.models.report import Report
 from app.models.user import User
 from app.schemas.upload import ReportListItem, ReportOut
+
+
+class SendEmailBody(BaseModel):
+    extra_emails: list[EmailStr] = []
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -147,10 +152,11 @@ def resend_report(
 @router.post("/{report_id}/send-email")
 def send_email_manual(
     report_id: uuid.UUID,
+    body: SendEmailBody = Body(default_factory=SendEmailBody),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Send the report PDF by email to the company owner."""
+    """Send the report PDF by email. Optionally include extra recipients."""
     from datetime import datetime, timezone
 
     from app.reports.email import send_report_email
@@ -180,6 +186,7 @@ def send_email_manual(
         "actions": report.narrative_actions,
     }
 
+    extra = [str(e) for e in body.extra_emails]
     ok = send_report_email(
         to_email=recipient,
         to_name=company.owner_name or company.name,
@@ -187,6 +194,7 @@ def send_email_manual(
         metrics=report.metrics or {},
         narrative=narrative,
         pdf_path=report.pdf_path,
+        extra_to=extra,
     )
 
     if ok:
@@ -197,4 +205,5 @@ def send_email_manual(
     if not ok:
         raise HTTPException(status_code=502, detail="Email delivery failed — check server logs")
 
-    return {"ok": True, "to": recipient}
+    all_to = [recipient] + extra
+    return {"ok": True, "to": all_to}

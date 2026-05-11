@@ -34,6 +34,7 @@ def send_report_email(
     metrics: dict[str, Any],
     narrative: dict[str, str],
     pdf_path: str | Path,
+    extra_to: list[str] | None = None,
 ) -> bool:
     """Send the monthly report email via Resend. Returns True on success."""
     if not settings.resend_api_key:
@@ -88,10 +89,11 @@ def send_report_email(
     pdf_bytes = Path(pdf_path).read_bytes()
     pdf_filename = f"ghostcfo_{company_name.lower().replace(' ', '_')[:30]}_{year}-{month:02d}.pdf"
 
+    all_to = [to_email] + (extra_to or [])
     try:
         response = resend.Emails.send({
             "from": f"{settings.from_name} <{settings.from_email}>",
-            "to": [to_email],
+            "to": all_to,
             "subject": subject,
             "html": html_body,
             "attachments": [
@@ -101,10 +103,10 @@ def send_report_email(
                 }
             ],
         })
-        log.info("email.sent", to=to_email, id=response.get("id"), company=company_name)
+        log.info("email.sent", to=all_to, id=response.get("id"), company=company_name)
         return True
     except Exception as exc:
-        log.error("email.failed", to=to_email, error=str(exc))
+        log.error("email.failed", to=all_to, error=str(exc))
         return False
 
 

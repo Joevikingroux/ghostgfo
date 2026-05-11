@@ -8,6 +8,9 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
+  // which report has the extra-recipients panel open
+  const [emailPanelId, setEmailPanelId] = useState<string | null>(null);
+  const [extraEmails, setExtraEmails] = useState("");
   const [toast, setToast] = useState<{ msg: string; ok: boolean }>({ msg: "", ok: true });
 
   useEffect(() => {
@@ -26,14 +29,27 @@ export default function ReportsPage() {
     }
   };
 
+  const openEmailPanel = (r: ReportListItem) => {
+    setEmailPanelId(r.id);
+    setExtraEmails("");
+  };
+
   const handleSendEmail = async (r: ReportListItem) => {
     setSendingEmail(r.id);
+    const extras = extraEmails
+      .split(/[\s,;]+/)
+      .map((e) => e.trim())
+      .filter(Boolean);
     try {
-      const res = await sendReportEmail(r.id);
-      showToast(`Email sent to ${res.data.to}`, true);
+      const res = await sendReportEmail(r.id, extras);
+      const sent = res.data.to;
+      const label = sent.length > 1 ? `${sent[0]} + ${sent.length - 1} more` : sent[0];
+      showToast(`Email sent to ${label}`, true);
       setReports((prev) =>
         prev.map((x) => (x.id === r.id ? { ...x, email_sent: true } : x))
       );
+      setEmailPanelId(null);
+      setExtraEmails("");
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       showToast(detail ?? "Email failed — check server logs.", false);
@@ -77,8 +93,9 @@ export default function ReportsPage() {
       ) : (
         <div className="space-y-2">
           {reports.map((r) => (
-            <div key={r.id} className="card p-4">
-              <div className="flex items-center justify-between">
+            <div key={r.id} className="card">
+              {/* Main row */}
+              <div className="flex items-center justify-between p-4">
                 <div>
                   <div className="font-medium text-sm">
                     {formatPeriod(r.period_month, r.period_year)}
@@ -123,17 +140,51 @@ export default function ReportsPage() {
 
                     {r.pdf_ready && (
                       <button
-                        onClick={() => handleSendEmail(r)}
-                        disabled={sendingEmail === r.id}
-                        title="Re-send report PDF by email"
+                        onClick={() =>
+                          emailPanelId === r.id
+                            ? setEmailPanelId(null)
+                            : openEmailPanel(r)
+                        }
                         className="btn-ghost text-xs px-3 py-1.5 border border-surface-border"
                       >
-                        {sendingEmail === r.id ? "…" : "Send Email"}
+                        Send Email
                       </button>
                     )}
                   </div>
                 </div>
               </div>
+
+              {/* Extra recipients panel */}
+              {emailPanelId === r.id && (
+                <div className="border-t border-white/6 px-4 py-3 bg-zinc-900/50 space-y-2">
+                  <p className="text-xs text-zinc-400">
+                    Sends to the company's primary email. Add extra recipients below (comma-separated), or leave blank.
+                  </p>
+                  <input
+                    type="text"
+                    value={extraEmails}
+                    onChange={(e) => setExtraEmails(e.target.value)}
+                    placeholder="extra@example.com, another@example.com"
+                    className="input-base w-full text-sm"
+                    autoFocus
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      onClick={() => setEmailPanelId(null)}
+                      className="btn-ghost text-xs px-3 py-1.5"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => handleSendEmail(r)}
+                      disabled={sendingEmail === r.id}
+                      className="btn-primary text-xs px-3 py-1.5"
+                    >
+                      {sendingEmail === r.id ? "Sending…" : "Send"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

@@ -96,8 +96,10 @@ export const getReportStatus = (id: string) =>
 export const downloadReport = (id: string) =>
   client.get(`/reports/${id}/download`, { responseType: "blob" });
 
-export const sendReportEmail = (id: string) =>
-  client.post<{ ok: boolean; to: string }>(`/reports/${id}/send-email`);
+export const sendReportEmail = (id: string, extraEmails: string[] = []) =>
+  client.post<{ ok: boolean; to: string[] }>(`/reports/${id}/send-email`, {
+    extra_emails: extraEmails,
+  });
 
 
 export const getRevenueTrends = () =>
