@@ -204,11 +204,11 @@ def agent_status(
     )
 
 
-@router.post("/heartbeat", status_code=204)
+@router.post("/heartbeat", status_code=204, response_model=None)
 def heartbeat(
     x_agent_key: str = Header(alias="X-Agent-Key"),
     db: Session = Depends(get_db),
-) -> None:
+):
     """Lightweight liveness ping — agent calls this every 5 minutes.
 
     Updates last_heartbeat_at so the operator dashboard can show whether
