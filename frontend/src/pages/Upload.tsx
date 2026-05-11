@@ -212,10 +212,10 @@ function EvolutionUploadForm() {
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <h1 className="font-heading text-2xl font-bold">Generate Monthly Report</h1>
+        <h1 className="font-heading text-2xl font-bold">Upload Payroll Exports</h1>
         <p className="text-zinc-400 text-sm mt-1">
-          Your accounting data is pulled automatically from Pastel Evolution.
-          Upload your Sage Payroll exports below, then click Generate.
+          Your financial data is pulled automatically from Pastel Evolution on the 1st of each month.
+          Upload your Sage Pastel Payroll exports below to complete the monthly report.
         </p>
       </div>
 
@@ -225,15 +225,16 @@ function EvolutionUploadForm() {
           <span className="text-brand-teal text-sm font-bold">✓</span>
         </div>
         <div>
-          <p className="text-sm font-medium text-white">Pastel Evolution — automatic data pull</p>
+          <p className="text-sm font-medium text-white">Pastel Evolution — fully automatic</p>
           <p className="text-xs text-zinc-400 mt-0.5">
-            When you click Generate, the Ghost CFO agent on your server will automatically
-            pull your revenue, costs, debtors, creditors, and cash data for the selected
-            period from Pastel Evolution. No manual export needed.
+            Revenue, costs, debtors, creditors, and cash data are pulled automatically
+            from your Pastel Evolution system on the 1st of each month. No manual export needed.
+            You will receive a reminder email when your accounting data is ready and payroll is required.
           </p>
           <p className="text-xs text-zinc-500 mt-1.5">
-            The agent checks for report requests every hour. Your report will be ready
-            within the hour after you click Generate.
+            Payroll is managed by Sage Pastel Payroll (a separate product) and must be
+            uploaded manually below. Once uploaded, your complete report will be generated
+            and emailed to the business owner automatically.
           </p>
         </div>
       </div>
@@ -281,10 +282,11 @@ function EvolutionUploadForm() {
 
         <div className="flex items-center justify-between">
           <p className="text-xs text-zinc-500">
-            Accounting data will be pulled from Evolution automatically
+            At least one payroll file is recommended. You can upload without payroll
+            — the report will include accounting data only.
           </p>
           <button type="submit" disabled={submitting} className="btn-primary">
-            {submitting ? "Requesting…" : "Generate Report →"}
+            {submitting ? "Uploading…" : "Upload Payroll →"}
           </button>
         </div>
       </form>

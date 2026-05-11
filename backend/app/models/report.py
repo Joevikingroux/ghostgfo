@@ -58,10 +58,9 @@ class Report(Base, UUIDPK, Timestamps):
 
     email_sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     email_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    telegram_sent: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False
-    )
+    telegram_sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     telegram_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    payroll_pending: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

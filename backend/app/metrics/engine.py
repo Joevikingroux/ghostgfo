@@ -76,6 +76,11 @@ class MetricsEngine:
         out["warnings"] = data.warnings
         return out
 
+    @staticmethod
+    def score(metrics: dict[str, Any]) -> dict[str, Any]:
+        """Re-compute health score from an already-populated metrics dict."""
+        return _health_score(metrics)
+
 
 # ---------------------------------------------------------------------------
 # Health score

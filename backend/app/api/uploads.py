@@ -114,7 +114,6 @@ def create_upload(
 ):
     from sqlalchemy import select
     from app.models.company import Company
-    from app.models.evolution_agent import EvolutionAgent
 
     if user.role not in {"bookkeeper", "owner", "admin"}:
         raise HTTPException(status_code=403, detail="Upload permission required")
@@ -138,7 +137,7 @@ def create_upload(
     )
 
     if is_evolution:
-        # Evolution clients: accounting data comes from the agent.
+        # Evolution clients: accounting data is pushed automatically by the agent.
         # Only payroll files are uploaded here.
         if payroll_summary and payroll_summary.filename:
             upload.payroll_summary_path = _save_upload(payroll_summary, dest, "payroll_summary")
@@ -153,28 +152,31 @@ def create_upload(
         db.commit()
         db.refresh(upload)
 
-        # Signal the agent to pull accounting data for this period.
-        agent = db.execute(
-            select(EvolutionAgent).where(
-                EvolutionAgent.company_id == user.company_id,
-                EvolutionAgent.active == True,  # noqa: E712
+        # If a report already exists for this period, apply payroll immediately.
+        # Otherwise, save the files and let the agent include them when it next syncs.
+        from app.models.report import Report
+        existing_report = db.execute(
+            select(Report).where(
+                Report.company_id == user.company_id,
+                Report.period_month == period_month,
+                Report.period_year == period_year,
             )
         ).scalar_one_or_none()
 
-        if agent:
-            agent.pending_sync_month = period_month
-            agent.pending_sync_year = period_year
-            db.commit()
+        if existing_report:
+            from app.tasks.generate_report import apply_payroll_to_report_task
+            apply_payroll_to_report_task.delay(str(upload.id))
             log.info(
-                "upload.evolution.pending_sync_set",
+                "upload.evolution.payroll_queued",
+                upload_id=str(upload.id),
+                report_id=str(existing_report.id),
+            )
+        else:
+            log.info(
+                "upload.evolution.payroll_saved_awaiting_agent",
                 upload_id=str(upload.id),
                 company_id=str(user.company_id),
                 period=f"{period_year}-{period_month:02d}",
-            )
-        else:
-            log.warning(
-                "upload.evolution.no_active_agent",
-                company_id=str(user.company_id),
             )
 
         return upload

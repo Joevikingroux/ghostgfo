@@ -39,6 +39,29 @@ def deliver_report_task(self, report_id: str) -> dict:
             log.error("deliver.company_not_found", report_id=report_id)
             return {"status": "error", "reason": "company not found"}
 
+        # Evolution report waiting for payroll: send reminder to bookkeeper, not full report to owner
+        if report.payroll_pending:
+            from app.reports.email import send_payroll_reminder_email
+            from app.core.config import settings
+
+            reminder_to = company.bookkeeper_email or company.owner_email
+            if reminder_to:
+                ok = send_payroll_reminder_email(
+                    to_email=reminder_to,
+                    to_name=company.bookkeeper_name or company.owner_name or company.name,
+                    company_name=company.trading_name or company.name,
+                    period_month=report.period_month,
+                    period_year=report.period_year,
+                    portal_url=settings.base_url,
+                )
+                log.info(
+                    "deliver.payroll_reminder_sent" if ok else "deliver.payroll_reminder_failed",
+                    report_id=report_id,
+                    to=reminder_to,
+                )
+            return {"payroll_pending": True, "reminder_sent": bool(reminder_to)}
+
+        # Full report: send to owner (or bookkeeper as fallback)
         metrics = report.metrics or {}
         narrative = {
             "summary": report.narrative_summary,
@@ -51,8 +74,6 @@ def deliver_report_task(self, report_id: str) -> dict:
         }
 
         results = {"email": False}
-
-        # --- Email ---
         recipient_email = company.owner_email or company.bookkeeper_email
         if recipient_email and report.pdf_path:
             try:
@@ -73,19 +94,13 @@ def deliver_report_task(self, report_id: str) -> dict:
             except Exception as exc:
                 log.error("deliver.email_error", report_id=report_id, error=str(exc))
         else:
-            log.info(
-                "deliver.email_skipped",
-                report_id=report_id,
-                reason="no email or no PDF",
-            )
+            log.info("deliver.email_skipped", report_id=report_id, reason="no email or no PDF")
 
-        # Retry on email failure
-        if not results["email"]:
-            if recipient_email:
-                raise self.retry(
-                    exc=RuntimeError("Both delivery channels failed"),
-                    countdown=60 * (2 ** self.request.retries),
-                )
+        if not results["email"] and recipient_email:
+            raise self.retry(
+                exc=RuntimeError("Email delivery failed"),
+                countdown=60 * (2 ** self.request.retries),
+            )
 
         return results
     finally:

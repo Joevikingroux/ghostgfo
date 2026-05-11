@@ -78,13 +78,24 @@ def list_companies(
     return rows
 
 
+def _enforce_data_source(data: dict) -> dict:
+    """Starter must use Partner; Professional/Premium must use Evolution."""
+    plan = (data.get("plan") or "starter").lower()
+    if plan == "starter":
+        data["data_source"] = "partner"
+    elif plan in ("professional", "premium"):
+        data["data_source"] = "evolution"
+    return data
+
+
 @router.post("", response_model=CompanyOut, status_code=status.HTTP_201_CREATED)
 def create_company(
     body: CompanyCreate,
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    company = Company(**body.model_dump())
+    data = _enforce_data_source(body.model_dump())
+    company = Company(**data)
     db.add(company)
     db.commit()
     db.refresh(company)
@@ -125,12 +136,13 @@ def update_company(
         if user.company_id != company_id:
             raise HTTPException(status_code=403, detail="Access denied")
         restricted = body.model_dump(exclude_none=True)
-        for f in ("plan", "active"):
+        for f in ("plan", "active", "data_source"):
             restricted.pop(f, None)
         for field, value in restricted.items():
             setattr(company, field, value)
     else:
-        for field, value in body.model_dump(exclude_none=True).items():
+        updates = _enforce_data_source(body.model_dump(exclude_none=True))
+        for field, value in updates.items():
             setattr(company, field, value)
 
     db.commit()

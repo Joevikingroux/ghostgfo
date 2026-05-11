@@ -128,6 +128,7 @@ export interface ReportListItem {
   health_rating: string | null;
   pdf_ready: boolean;
   email_sent: boolean;
+  payroll_pending: boolean;
   generated_at: string | null;
 }
 

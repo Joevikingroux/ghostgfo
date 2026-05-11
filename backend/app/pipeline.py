@@ -29,6 +29,13 @@ from app.reports.pdf_generator import generate_pdf
 log = get_logger(__name__)
 
 
+def _parse_file(parser_cls, path: str | None):
+    """Parse a single export file. Returns None if path is absent or missing on disk."""
+    if not path or not Path(path).exists():
+        return None
+    return parser_cls().parse(path)
+
+
 def run_for_upload(upload_id: uuid.UUID, db: Session) -> Report:
     """Full pipeline for one Upload row. Returns the persisted Report."""
     upload = db.get(Upload, upload_id)
@@ -144,6 +151,7 @@ def _execute(upload: Upload, db: Session) -> Report:
     report.narrative_actions = narrative.actions
     report.narrative_trend = narrative.trend
     report.pdf_path = str(pdf_path)
+    report.payroll_pending = False  # Partner upload always includes everything at once
     report.generated_at = datetime.now(timezone.utc)
 
     db.commit()
@@ -198,10 +206,34 @@ def run_for_agent_data(
     language = getattr(company, "language", "en") or "en"
     if plan == "starter":
         language = "en"
-        # Strip payroll data for Starter plans
         data.payroll_summary_totals = None
         data.payroll_employee_cost_totals = None
         data.payroll_leave_totals = None
+
+    # For Pro/Premium: check if bookkeeper has already uploaded payroll for this period
+    payroll_pending = False
+    if plan in ("professional", "premium"):
+        from app.models.upload import Upload
+        payroll_upload = db.execute(
+            select(Upload).where(
+                Upload.company_id == company_id,
+                Upload.period_month == period_month,
+                Upload.period_year == period_year,
+                Upload.payroll_summary_path.is_not(None),
+            )
+        ).scalar_one_or_none()
+
+        if payroll_upload:
+            log.info("pipeline.agent.payroll_found", upload_id=str(payroll_upload.id))
+            pr = _parse_file(PayrollSummaryParser, payroll_upload.payroll_summary_path)
+            ec = _parse_file(EmployeeCostParser, payroll_upload.payroll_employee_cost_path)
+            lv = _parse_file(LeaveLiabilityParser, payroll_upload.payroll_leave_path)
+            data.payroll_summary_totals = pr.totals if pr else None
+            data.payroll_employee_cost_totals = ec.totals if ec else None
+            data.payroll_leave_totals = lv.totals if lv else None
+        else:
+            payroll_pending = True
+            log.info("pipeline.agent.payroll_pending", company_id=str(company_id))
 
     metrics = MetricsEngine().run(data)
 
@@ -238,6 +270,7 @@ def run_for_agent_data(
     report.narrative_actions = narrative.actions
     report.narrative_trend = narrative.trend
     report.pdf_path = str(pdf_path)
+    report.payroll_pending = payroll_pending
     report.generated_at = datetime.now(timezone.utc)
 
     db.commit()
@@ -247,6 +280,87 @@ def run_for_agent_data(
         report_id=str(report.id),
         health_score=metrics.get("health_score"),
     )
+    return report
+
+
+def apply_payroll_update(upload_id: uuid.UUID, db: Session) -> Report:
+    """Merge payroll files from an Evolution payroll upload into an existing report.
+
+    Called when the bookkeeper uploads payroll after the agent has already pushed
+    accounting data and created a partial report with payroll_pending=True.
+    """
+    from sqlalchemy import select
+    from app.core.config import settings
+    from app.metrics import payroll as payroll_mod
+
+    upload = db.get(Upload, upload_id)
+    if not upload:
+        raise ValueError(f"Upload {upload_id} not found")
+
+    report = db.execute(
+        select(Report).where(
+            Report.company_id == upload.company_id,
+            Report.period_month == upload.period_month,
+            Report.period_year == upload.period_year,
+        )
+    ).scalar_one_or_none()
+    if not report:
+        raise ValueError(
+            f"No report found for period {upload.period_month}/{upload.period_year}. "
+            "The Evolution agent must push data before payroll can be applied."
+        )
+
+    company = upload.company
+    plan = (company.plan or "starter").lower()
+    language = getattr(company, "language", "en") or "en"
+    if plan == "starter":
+        language = "en"
+
+    warnings: list[str] = []
+    payroll = _parse_file(PayrollSummaryParser, upload.payroll_summary_path)
+    emp_cost = _parse_file(EmployeeCostParser, upload.payroll_employee_cost_path)
+    leave = _parse_file(LeaveLiabilityParser, upload.payroll_leave_path)
+    for result in (payroll, emp_cost, leave):
+        if result:
+            warnings.extend(result.warnings)
+
+    existing = dict(report.metrics or {})
+
+    pay = payroll_mod.compute(
+        payroll.totals if payroll else None,
+        emp_cost.totals if emp_cost else None,
+        leave.totals if leave else None,
+        revenue_current=existing.get("revenue_current_month", 0),
+        revenue_previous=existing.get("revenue_previous_month", 0),
+        cash_balance=existing.get("cash_balance", 0),
+        period_month=upload.period_month,
+        period_year=upload.period_year,
+        previous_payroll_gross=None,
+        journal_integrated=upload.payroll_journal_integrated,
+    )
+    existing.update(pay)
+    existing.update(MetricsEngine.score(existing))
+    if warnings:
+        existing["warnings"] = (existing.get("warnings") or []) + warnings
+
+    narrative = NarrativeGenerator().generate(existing, language=language, plan=plan)
+    pdf_path = generate_pdf(existing, narrative, output_dir=settings.reports_dir)
+
+    report.metrics = existing
+    report.narrative_summary = narrative.summary
+    report.narrative_revenue = narrative.revenue
+    report.narrative_costs = narrative.costs
+    report.narrative_debtors = narrative.debtors
+    report.narrative_payroll = narrative.payroll
+    report.narrative_cash = narrative.cash
+    report.narrative_actions = narrative.actions
+    report.narrative_trend = narrative.trend
+    report.pdf_path = str(pdf_path)
+    report.payroll_pending = False
+
+    db.commit()
+    db.refresh(report)
+    log.info("pipeline.payroll_applied", report_id=str(report.id))
     return report
 
 

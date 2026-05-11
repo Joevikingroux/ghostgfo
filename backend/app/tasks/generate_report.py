@@ -57,6 +57,27 @@ def generate_report_task(self, upload_id: str) -> str:
         db.close()
 
 
+@celery.task(name="ghostcfo.apply_payroll_to_report", bind=True, max_retries=2)
+def apply_payroll_to_report_task(self, upload_id: str) -> str:
+    """Apply payroll files to an existing Evolution report, then deliver the full report."""
+    from app.core.database import SessionLocal
+    from app.pipeline import apply_payroll_update
+    from app.tasks.deliver_report import deliver_report_task
+
+    db = SessionLocal()
+    try:
+        report = apply_payroll_update(uuid.UUID(upload_id), db)
+        report_id = str(report.id)
+        deliver_report_task.delay(report_id)
+        _cleanup_upload_files(uuid.UUID(upload_id), db)
+        return report_id
+    except Exception as exc:
+        log.error("task.apply_payroll.failed", upload_id=upload_id, error=str(exc))
+        raise self.retry(exc=exc, countdown=30)
+    finally:
+        db.close()
+
+
 @celery.task(name="ghostcfo.generate_report_from_agent", bind=True, max_retries=2)
 def generate_report_from_agent(
     self,

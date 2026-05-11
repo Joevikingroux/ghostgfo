@@ -104,6 +104,7 @@ def report_status(
         "generated": report.generated_at is not None,
         "pdf_ready": bool(report.pdf_path),
         "email_sent": report.email_sent,
+        "payroll_pending": bool(report.payroll_pending),
         "health_score": report.metrics.get("health_score") if report.metrics else None,
         "health_rating": report.metrics.get("health_rating") if report.metrics else None,
     }

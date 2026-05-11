@@ -117,6 +117,12 @@ export default function ReportsPage() {
                     </div>
                   )}
 
+                  {r.payroll_pending && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-amber-950 text-amber-400 border border-amber-800">
+                      Payroll pending
+                    </span>
+                  )}
+
                   <span
                     className={`text-xs px-2 py-0.5 rounded-full ${
                       r.email_sent ? "bg-emerald-950 text-emerald-400" : "bg-zinc-800 text-zinc-500"

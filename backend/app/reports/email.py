@@ -110,6 +110,49 @@ def send_report_email(
         return False
 
 
+def send_payroll_reminder_email(
+    *,
+    to_email: str,
+    to_name: str,
+    company_name: str,
+    period_month: int,
+    period_year: int,
+    portal_url: str,
+) -> bool:
+    """Notify the bookkeeper that Evolution data is ready and payroll needs uploading."""
+    if not settings.resend_api_key:
+        log.warning("email.skipped", reason="RESEND_API_KEY not set")
+        return False
+    try:
+        import resend
+    except ImportError:
+        log.error("email.import_error", msg="resend package not installed")
+        return False
+
+    resend.api_key = settings.resend_api_key
+    month_name = calendar.month_name[period_month]
+    html_body = _jinja.get_template("email_payroll_reminder.html").render(
+        to_name=to_name,
+        company_name=company_name,
+        month_name=month_name,
+        period_year=period_year,
+        portal_url=portal_url,
+    )
+    subject = f"Ghost CFO — {company_name} — Upload Payroll to Complete {month_name} {period_year} Report"
+    try:
+        response = resend.Emails.send({
+            "from": f"{settings.from_name} <{settings.from_email}>",
+            "to": [to_email],
+            "subject": subject,
+            "html": html_body,
+        })
+        log.info("payroll_reminder.sent", to=to_email, id=response.get("id"), company=company_name)
+        return True
+    except Exception as exc:
+        log.error("payroll_reminder.failed", to=to_email, error=str(exc))
+        return False
+
+
 def send_debtor_alert_email(
     *,
     to_email: str,

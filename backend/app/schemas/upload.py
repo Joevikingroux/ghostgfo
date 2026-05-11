@@ -61,6 +61,7 @@ class ReportListItem(BaseModel):
     health_rating: str | None = None
     pdf_ready: bool
     email_sent: bool
+    payroll_pending: bool
     generated_at: datetime | None
 
     model_config = {"from_attributes": True}
@@ -77,5 +78,6 @@ class ReportListItem(BaseModel):
             health_rating=metrics.get("health_rating"),
             pdf_ready=bool(r.pdf_path),
             email_sent=r.email_sent,
+            payroll_pending=bool(r.payroll_pending),
             generated_at=r.generated_at,
         )
