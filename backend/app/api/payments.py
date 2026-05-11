@@ -193,18 +193,23 @@ async def payfast_notify(request: Request, db: Session = Depends(get_db)) -> str
     from sqlalchemy import select
 
     body_bytes = await request.body()
-    params = dict(urllib.parse.parse_qsl(body_bytes.decode()))
+    body_str = body_bytes.decode()
+    params = dict(urllib.parse.parse_qsl(body_str))
 
     log.info("payment.itn received params=%s", {k: v for k, v in params.items() if "key" not in k.lower()})
 
-    # 1. Verify signature — log mismatch but always return 200 so PayFast doesn't retry endlessly
-    received_sig = params.pop("signature", "")
-    expected_sig = _sign(params)
+    # 1. Verify signature against the raw body — avoids re-encoding drift vs PayFast's PHP urlencode
+    received_sig = params.get("signature", "")
+    raw_parts = [seg for seg in body_str.split("&") if not seg.startswith("signature=")]
+    raw_param_string = "&".join(raw_parts)
+    if settings.payfast_passphrase:
+        raw_param_string += "&passphrase=" + urllib.parse.quote_plus(settings.payfast_passphrase.strip())
+    expected_sig = hashlib.md5(raw_param_string.encode()).hexdigest()
     sig_ok = secrets.compare_digest(received_sig, expected_sig)
     if not sig_ok:
         log.warning(
-            "payment.itn signature_mismatch received=%s expected=%s param_string=%s",
-            received_sig, expected_sig, _build_param_string(params),
+            "payment.itn signature_mismatch received=%s expected=%s",
+            received_sig, expected_sig,
         )
 
     # 2. Verify payment status
