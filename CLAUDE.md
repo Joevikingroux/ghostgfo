@@ -282,7 +282,7 @@ Pastel clients to reach this target without any cold outreach.
 - **Domain:** ghostcfo.co.za (primary) or ghostcfo.numbers10.co.za (staging)
 - **Backups:** PostgreSQL daily dumps → Synology NAS → Hetzner Storage Box
 - **CI/CD:** GitHub Actions → SSH deploy to VPS
-- **Repo:** github.com/Joevikingroux/ghostcfo
+- **Repo:** github.com/Joevikingroux/ghostgfo
 
 ### Ghost CFO Agent (for Evolution clients)
 

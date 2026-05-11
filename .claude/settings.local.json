@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C \"C:\\\\Users\\\\Joe\\\\Documents\\\\Ghost CVO\" status)",
+      "Bash(git commit -m ' *)",
+      "Bash(git tag *)",
+      "Bash(git push *)",
+      "Bash(git add *)",
+      "Bash(git pull *)",
+      "Bash(git commit *)",
+      "WebSearch",
+      "Bash(pip --version)",
+      "PowerShell(Test-Path *)"
+    ]
+  }
+}

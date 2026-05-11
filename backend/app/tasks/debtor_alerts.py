@@ -45,7 +45,7 @@ def debtor_alerts_task(self) -> dict:
     from app.core.database import SessionLocal
     from app.models.company import Company
     from app.models.report import Report
-    from app.reports.whatsapp import send_whatsapp_message
+    from app.reports.telegram import send_telegram_message
 
     db = SessionLocal()
     sent = 0
@@ -55,7 +55,7 @@ def debtor_alerts_task(self) -> dict:
             select(Company).where(
                 Company.active == True,  # noqa: E712
                 Company.plan.in_(["professional", "premium"]),
-                Company.owner_whatsapp != None,  # noqa: E711
+                Company.owner_telegram != None,  # noqa: E711
             )
         ).scalars().all()
 
@@ -87,8 +87,8 @@ def debtor_alerts_task(self) -> dict:
                 skipped += 1
                 continue
 
-            ok = send_whatsapp_message(
-                to_number=company.owner_whatsapp,
+            ok = send_telegram_message(
+                chat_id=company.owner_telegram,
                 company_name=company.name,
                 metrics=report.metrics,
                 narrative_summary=_overdue_text(company.name, critical),

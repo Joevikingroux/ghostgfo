@@ -27,7 +27,7 @@ function syncBadge(status: string | null) {
 
 const BLANK_COMPANY = {
   name: "", trading_name: "", industry: "",
-  owner_name: "", owner_email: "", owner_whatsapp: "",
+  owner_name: "", owner_email: "", owner_telegram: "",
   bookkeeper_name: "", bookkeeper_email: "",
   plan: "starter", data_source: "partner", language: "en",
 };
@@ -120,8 +120,8 @@ function NewCompanyForm({ onCreated }: { onCreated: () => void }) {
               <input type="email" value={form.owner_email} onChange={set("owner_email")} className="input-base w-full" placeholder="owner@company.co.za" />
             </div>
             <div>
-              <label className="block text-xs text-zinc-400 mb-1">WhatsApp (+27…)</label>
-              <input value={form.owner_whatsapp} onChange={set("owner_whatsapp")} className="input-base w-full" placeholder="+27821234567" />
+              <label className="block text-xs text-zinc-400 mb-1">Telegram Chat ID</label>
+              <input value={form.owner_telegram} onChange={set("owner_telegram")} className="input-base w-full" placeholder="e.g. 123456789" />
             </div>
           </div>
 
@@ -165,7 +165,7 @@ function EditCompanyForm({ company, onSaved, onCancel }: {
     industry: company.industry ?? "",
     owner_name: company.owner_name ?? "",
     owner_email: company.owner_email ?? "",
-    owner_whatsapp: company.owner_whatsapp ?? "",
+    owner_telegram: company.owner_telegram ?? "",
     bookkeeper_name: company.bookkeeper_name ?? "",
     bookkeeper_email: company.bookkeeper_email ?? "",
     plan: company.plan ?? "starter",
@@ -246,8 +246,8 @@ function EditCompanyForm({ company, onSaved, onCancel }: {
           <input type="email" value={form.owner_email} onChange={set("owner_email")} className="input-base w-full" />
         </div>
         <div>
-          <label className="block text-xs text-zinc-400 mb-1">WhatsApp (+27…)</label>
-          <input value={form.owner_whatsapp} onChange={set("owner_whatsapp")} className="input-base w-full" />
+          <label className="block text-xs text-zinc-400 mb-1">Telegram Chat ID</label>
+          <input value={form.owner_telegram} onChange={set("owner_telegram")} className="input-base w-full" placeholder="e.g. 123456789" />
         </div>
       </div>
 

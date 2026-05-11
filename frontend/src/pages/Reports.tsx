@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getReports, triggerPdfDownload, sendReportEmail, sendReportWhatsApp } from "@/lib/api";
+import { getReports, triggerPdfDownload, sendReportEmail, sendReportTelegram } from "@/lib/api";
 import { formatPeriod } from "@/lib/format";
 import type { ReportListItem } from "@/lib/types";
 
@@ -8,7 +8,7 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
-  const [sendingWhatsApp, setSendingWhatsApp] = useState<string | null>(null);
+  const [sendingTelegram, setSendingWhatsApp] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean }>({ msg: "", ok: true });
 
   useEffect(() => {
@@ -43,13 +43,13 @@ export default function ReportsPage() {
     }
   };
 
-  const handleSendWhatsApp = async (r: ReportListItem) => {
+  const handleSendTelegram = async (r: ReportListItem) => {
     setSendingWhatsApp(r.id);
     try {
-      const res = await sendReportWhatsApp(r.id);
+      const res = await sendReportTelegram(r.id);
       showToast(`WhatsApp sent to ${res.data.to}`, true);
       setReports((prev) =>
-        prev.map((x) => (x.id === r.id ? { ...x, whatsapp_sent: true } : x))
+        prev.map((x) => (x.id === r.id ? { ...x, telegram_sent: true } : x))
       );
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
@@ -120,7 +120,7 @@ export default function ReportsPage() {
                   {/* Delivery badges */}
                   <div className="flex gap-1.5">
                     <DeliveryBadge sent={r.email_sent} label="Email" />
-                    <DeliveryBadge sent={r.whatsapp_sent} label="WhatsApp" />
+                    <DeliveryBadge sent={r.telegram_sent} label="Telegram" />
                   </div>
 
                   {/* Actions */}
@@ -149,12 +149,12 @@ export default function ReportsPage() {
                     )}
 
                     <button
-                      onClick={() => handleSendWhatsApp(r)}
-                      disabled={sendingWhatsApp === r.id || !r.generated_at}
-                      title="Send report summary via WhatsApp"
+                      onClick={() => handleSendTelegram(r)}
+                      disabled={sendingTelegram === r.id || !r.generated_at}
+                      title="Send report summary via Telegram"
                       className="btn-ghost text-xs px-3 py-1.5 border border-surface-border disabled:opacity-40"
                     >
-                      {sendingWhatsApp === r.id ? "…" : "WhatsApp"}
+                      {sendingTelegram === r.id ? "…" : "Telegram"}
                     </button>
                   </div>
                 </div>

@@ -95,7 +95,7 @@ def report_status(
         "generated": report.generated_at is not None,
         "pdf_ready": bool(report.pdf_path),
         "email_sent": report.email_sent,
-        "whatsapp_sent": report.whatsapp_sent,
+        "telegram_sent": report.telegram_sent,
         "health_score": report.metrics.get("health_score") if report.metrics else None,
         "health_rating": report.metrics.get("health_rating") if report.metrics else None,
     }
@@ -201,16 +201,16 @@ def send_email_manual(
     return {"ok": True, "to": recipient}
 
 
-@router.post("/{report_id}/send-whatsapp")
-def send_whatsapp_manual(
+@router.post("/{report_id}/send-telegram")
+def send_telegram_manual(
     report_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Send the report summary via WhatsApp to the company owner."""
+    """Send the report summary via Telegram to the company owner."""
     from datetime import datetime, timezone
 
-    from app.reports.whatsapp import send_whatsapp_message
+    from app.reports.telegram import send_telegram_message
 
     report = db.get(Report, report_id)
     if not report:
@@ -221,12 +221,12 @@ def send_whatsapp_manual(
     if not company:
         raise HTTPException(status_code=400, detail="Company not found")
 
-    wa_number = company.owner_whatsapp
-    if not wa_number:
-        raise HTTPException(status_code=400, detail="No WhatsApp number configured for this company")
+    chat_id = company.owner_telegram
+    if not chat_id:
+        raise HTTPException(status_code=400, detail="No Telegram chat ID configured for this company")
 
-    ok = send_whatsapp_message(
-        to_number=wa_number,
+    ok = send_telegram_message(
+        chat_id=chat_id,
         company_name=company.trading_name or company.name,
         metrics=report.metrics or {},
         narrative_summary=report.narrative_summary,
@@ -234,11 +234,11 @@ def send_whatsapp_manual(
     )
 
     if ok:
-        report.whatsapp_sent = True
-        report.whatsapp_sent_at = datetime.now(timezone.utc)
+        report.telegram_sent = True
+        report.telegram_sent_at = datetime.now(timezone.utc)
         db.commit()
 
     if not ok:
-        raise HTTPException(status_code=502, detail="WhatsApp delivery failed — check server logs")
+        raise HTTPException(status_code=502, detail="Telegram delivery failed — check server logs")
 
-    return {"ok": True, "to": wa_number[:6] + "****"}
+    return {"ok": True, "to": chat_id}

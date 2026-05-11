@@ -26,7 +26,7 @@ def deliver_report_task(self, report_id: str) -> dict:
     from app.core.database import SessionLocal
     from app.models.report import Report
     from app.reports.email import send_report_email
-    from app.reports.whatsapp import send_whatsapp_message
+    from app.reports.telegram import send_telegram_message
 
     db = SessionLocal()
     try:
@@ -51,7 +51,7 @@ def deliver_report_task(self, report_id: str) -> dict:
             "actions": report.narrative_actions,
         }
 
-        results = {"email": False, "whatsapp": False}
+        results = {"email": False, "telegram": False}
 
         # --- Email ---
         recipient_email = company.owner_email or company.bookkeeper_email
@@ -80,35 +80,35 @@ def deliver_report_task(self, report_id: str) -> dict:
                 reason="no email or no PDF",
             )
 
-        # --- WhatsApp ---
-        whatsapp_number = company.owner_whatsapp
-        if whatsapp_number:
+        # --- Telegram ---
+        telegram_chat_id = company.owner_telegram
+        if telegram_chat_id:
             try:
-                ok = send_whatsapp_message(
-                    to_number=whatsapp_number,
+                ok = send_telegram_message(
+                    chat_id=telegram_chat_id,
                     company_name=company.trading_name or company.name,
                     metrics=metrics,
                     narrative_summary=report.narrative_summary,
                     narrative_actions=report.narrative_actions,
                 )
-                results["whatsapp"] = ok
+                results["telegram"] = ok
                 if ok:
-                    report.whatsapp_sent = True
-                    report.whatsapp_sent_at = datetime.now(timezone.utc)
+                    report.telegram_sent = True
+                    report.telegram_sent_at = datetime.now(timezone.utc)
                     db.commit()
-                    log.info("deliver.whatsapp_ok", report_id=report_id)
+                    log.info("deliver.telegram_ok", report_id=report_id)
             except Exception as exc:
-                log.error("deliver.whatsapp_error", report_id=report_id, error=str(exc))
+                log.error("deliver.telegram_error", report_id=report_id, error=str(exc))
         else:
             log.info(
-                "deliver.whatsapp_skipped",
+                "deliver.telegram_skipped",
                 report_id=report_id,
-                reason="no WhatsApp number",
+                reason="no Telegram chat ID",
             )
 
         # Retry if both channels failed (transient network issue possible)
-        if not results["email"] and not results["whatsapp"]:
-            if recipient_email or whatsapp_number:
+        if not results["email"] and not results["telegram"]:
+            if recipient_email or telegram_chat_id:
                 raise self.retry(
                     exc=RuntimeError("Both delivery channels failed"),
                     countdown=60 * (2 ** self.request.retries),

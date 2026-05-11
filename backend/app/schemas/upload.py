@@ -44,7 +44,7 @@ class ReportOut(BaseModel):
     narrative_actions: str | None
     pdf_path: str | None
     email_sent: bool
-    whatsapp_sent: bool
+    telegram_sent: bool
     generated_at: datetime | None
     created_at: datetime
 
@@ -60,7 +60,7 @@ class ReportListItem(BaseModel):
     health_rating: str | None = None
     pdf_ready: bool
     email_sent: bool
-    whatsapp_sent: bool
+    telegram_sent: bool
     generated_at: datetime | None
 
     model_config = {"from_attributes": True}
@@ -77,6 +77,6 @@ class ReportListItem(BaseModel):
             health_rating=metrics.get("health_rating"),
             pdf_ready=bool(r.pdf_path),
             email_sent=r.email_sent,
-            whatsapp_sent=r.whatsapp_sent,
+            telegram_sent=r.telegram_sent,
             generated_at=r.generated_at,
         )

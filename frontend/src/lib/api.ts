@@ -99,8 +99,8 @@ export const downloadReport = (id: string) =>
 export const sendReportEmail = (id: string) =>
   client.post<{ ok: boolean; to: string }>(`/reports/${id}/send-email`);
 
-export const sendReportWhatsApp = (id: string) =>
-  client.post<{ ok: boolean; to: string }>(`/reports/${id}/send-whatsapp`);
+export const sendReportTelegram = (id: string) =>
+  client.post<{ ok: boolean; to: string }>(`/reports/${id}/send-telegram`);
 
 export const getRevenueTrends = () =>
   client.get<Array<{

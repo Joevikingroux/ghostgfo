@@ -56,10 +56,10 @@ class Report(Base, UUIDPK, Timestamps):
 
     email_sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     email_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    whatsapp_sent: Mapped[bool] = mapped_column(
+    telegram_sent: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )
-    whatsapp_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    telegram_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

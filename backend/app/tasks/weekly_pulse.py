@@ -64,7 +64,7 @@ def weekly_pulse_task(self) -> dict:
     from app.core.database import SessionLocal
     from app.models.company import Company
     from app.models.report import Report
-    from app.reports.whatsapp import send_whatsapp_message
+    from app.reports.telegram import send_telegram_message
 
     db = SessionLocal()
     sent = 0
@@ -74,7 +74,7 @@ def weekly_pulse_task(self) -> dict:
             select(Company).where(
                 Company.active == True,  # noqa: E712
                 Company.plan.in_(["professional", "premium"]),
-                Company.owner_whatsapp != None,  # noqa: E711
+                Company.owner_telegram != None,  # noqa: E711
             )
         ).scalars().all()
 
@@ -90,8 +90,8 @@ def weekly_pulse_task(self) -> dict:
                 continue
 
             pulse = _pulse_text(company.name, report.metrics)
-            ok = send_whatsapp_message(
-                to_number=company.owner_whatsapp,
+            ok = send_telegram_message(
+                chat_id=company.owner_telegram,
                 company_name=company.name,
                 metrics=report.metrics,
                 narrative_summary=pulse,

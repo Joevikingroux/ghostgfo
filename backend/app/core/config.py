@@ -40,10 +40,9 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 1200
     llm_timeout_seconds: int = 60
 
-    # WhatsApp
-    whatsapp_phone_number_id: str = ""
-    whatsapp_access_token: str = ""
-    whatsapp_verify_token: str = ""
+    # Telegram
+    telegram_bot_token: str = ""
+    telegram_webhook_secret: str = ""  # optional X-Telegram-Bot-Api-Secret-Token
 
     # Email (Resend — resend.com)
     resend_api_key: str = ""

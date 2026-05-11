@@ -10,7 +10,7 @@ interface CompanySettings {
   trading_name: string | null;
   owner_name: string | null;
   owner_email: string | null;
-  owner_whatsapp: string | null;
+  owner_telegram: string | null;
   bookkeeper_name: string | null;
   bookkeeper_email: string | null;
   plan: string;
@@ -107,7 +107,7 @@ export default function SettingsPage() {
             Business Owner
           </h2>
           <p className="text-xs text-zinc-500">
-            The owner receives the PDF by email and a summary on WhatsApp.
+            The owner receives the PDF by email and a summary on Telegram.
           </p>
           <Field label="Owner Name" value={form.owner_name ?? ""} onChange={set("owner_name")} />
           <Field
@@ -117,11 +117,11 @@ export default function SettingsPage() {
             onChange={set("owner_email")}
           />
           <Field
-            label="WhatsApp Number"
-            value={form.owner_whatsapp ?? ""}
-            onChange={set("owner_whatsapp")}
-            placeholder="+27800000000"
-            hint="International format with country code, e.g. +27800000000"
+            label="Telegram Chat ID"
+            value={form.owner_telegram ?? ""}
+            onChange={set("owner_telegram")}
+            placeholder="e.g. 123456789"
+            hint="Message our Telegram bot and type /chatid to get your ID"
           />
         </div>
 
@@ -146,7 +146,7 @@ export default function SettingsPage() {
           </h2>
           <div>
             <label className="block text-xs text-zinc-400 mb-1.5">
-              Narrative language for PDF and WhatsApp reports
+              Narrative language for PDF and Telegram reports
             </label>
             <select
               value={form.language ?? "en"}
@@ -170,8 +170,8 @@ export default function SettingsPage() {
             <span className="text-sm capitalize font-medium">{company.plan}</span>
             <span className="text-xs text-zinc-500">
               {company.plan === "starter" && "Email delivery only"}
-              {company.plan === "professional" && "Email + WhatsApp delivery"}
-              {company.plan === "premium" && "Email + WhatsApp + quarterly trend analysis"}
+              {company.plan === "professional" && "Email + Telegram delivery"}
+              {company.plan === "premium" && "Email + Telegram + quarterly trend analysis"}
             </span>
           </div>
         </div>
