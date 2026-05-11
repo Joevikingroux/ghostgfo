@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { getUsers, adminReset2FA, deactivateUser, activateUser } from "@/lib/api";
+import { getUsers, adminReset2FA, deactivateUser, activateUser, updateUser } from "@/lib/api";
 import type { Company, EvolutionAgent, UserAdminView } from "@/lib/types";
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -398,6 +398,100 @@ function CompaniesTab({ companies, onRefresh }: { companies: Company[]; onRefres
 
 // ── Users tab ──────────────────────────────────────────────────────────────
 
+function UserEditForm({
+  user,
+  companies,
+  onSaved,
+  onCancel,
+}: {
+  user: UserAdminView;
+  companies: Company[];
+  onSaved: () => void;
+  onCancel: () => void;
+}) {
+  const [form, setForm] = useState({
+    full_name: user.full_name ?? "",
+    email: user.email,
+    role: user.role,
+    company_id: user.company_id ?? "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm((p) => ({ ...p, [k]: e.target.value }));
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      await updateUser(user.id, {
+        full_name: form.full_name || undefined,
+        email: form.email,
+        role: form.role,
+        company_id: form.company_id || null,
+      });
+      onSaved();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setError(msg || "Failed to save.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <tr>
+      <td colSpan={5} className="p-0">
+        <form
+          onSubmit={handleSave}
+          className="px-5 py-4 bg-surface-card/60 border-t border-brand-teal/30 space-y-3"
+        >
+          <p className="text-xs font-bold text-brand-teal uppercase tracking-wider">
+            Editing: {user.email}
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">Full Name</label>
+              <input value={form.full_name} onChange={set("full_name")} className="input-base w-full" placeholder="Jane Smith" />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">Email *</label>
+              <input required type="email" value={form.email} onChange={set("email")} className="input-base w-full" />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">Role</label>
+              <select value={form.role} onChange={set("role")} className="input-base w-full">
+                <option value="owner">Owner</option>
+                <option value="bookkeeper">Bookkeeper</option>
+                <option value="viewer">Viewer</option>
+                <option value="admin">Admin (Numbers10 only)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">Company</label>
+              <select value={form.company_id} onChange={set("company_id")} className="input-base w-full">
+                <option value="">— No company (admin) —</option>
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {error && <p className="text-red-400 text-xs">{error}</p>}
+          <div className="flex gap-3">
+            <button type="submit" disabled={saving} className="btn-primary">
+              {saving ? "Saving…" : "Save Changes"}
+            </button>
+            <button type="button" onClick={onCancel} className="btn-secondary">Cancel</button>
+          </div>
+        </form>
+      </td>
+    </tr>
+  );
+}
+
 const ROLE_COLOUR: Record<string, string> = {
   admin: "text-brand-teal",
   owner: "text-white",
@@ -408,6 +502,7 @@ const ROLE_COLOUR: Record<string, string> = {
 function UsersTab({ companies }: { companies: Company[] }) {
   const [users, setUsers] = useState<UserAdminView[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
 
   const load = () =>
@@ -486,63 +581,78 @@ function UsersTab({ companies }: { companies: Company[] }) {
             <tbody>
               {grouped[group].map((u) => {
                 const busy = actionInProgress === u.id;
+                const isEditing = editingId === u.id;
                 return (
-                  <tr key={u.id} className="border-b border-surface-border/30 last:border-0 hover:bg-white/2 transition-colors">
-                    <td className="px-5 py-3">
-                      <p className="font-medium">{u.full_name ?? u.email}</p>
-                      {u.full_name && <p className="text-xs text-zinc-500">{u.email}</p>}
-                      {u.must_change_password && (
-                        <p className="text-xs text-amber-400 mt-0.5">⚠ Must set password</p>
-                      )}
-                    </td>
-                    <td className="px-5 py-3">
-                      <span className={`capitalize font-medium text-sm ${ROLE_COLOUR[u.role] ?? ""}`}>{u.role}</span>
-                    </td>
-                    <td className="px-5 py-3">
-                      {u.totp_enabled ? (
-                        <span className="text-xs text-emerald-400 font-medium">✓ On</span>
-                      ) : (
-                        <span className="text-xs text-zinc-600">Off</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3">
-                      <span className={`text-xs font-medium ${u.active ? "text-emerald-400" : "text-red-400"}`}>
-                        {u.active ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-3">
-                        {u.totp_enabled && (
-                          <button
-                            onClick={() => handleReset2FA(u)}
-                            disabled={busy}
-                            className="text-xs text-zinc-500 hover:text-amber-400 transition-colors"
-                            title="Reset 2FA — user re-enrols on next login"
-                          >
-                            Reset 2FA
-                          </button>
+                  <>
+                    <tr key={u.id} className="border-b border-surface-border/30 last:border-0 hover:bg-white/2 transition-colors">
+                      <td className="px-5 py-3">
+                        <p className="font-medium">{u.full_name ?? u.email}</p>
+                        {u.full_name && <p className="text-xs text-zinc-500">{u.email}</p>}
+                        {u.must_change_password && (
+                          <p className="text-xs text-amber-400 mt-0.5">⚠ Must set password</p>
                         )}
-                        <button
-                          onClick={() => handleToggleActive(u)}
-                          disabled={busy}
-                          className={`text-xs transition-colors ${
-                            u.active
-                              ? "text-zinc-500 hover:text-red-400"
-                              : "text-zinc-500 hover:text-emerald-400"
-                          }`}
-                        >
-                          {u.active ? "Deactivate" : "Activate"}
-                        </button>
-                        <button
-                          onClick={() => handleDelete(u)}
-                          disabled={busy}
-                          className="text-xs text-zinc-600 hover:text-red-400 transition-colors"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                      </td>
+                      <td className="px-5 py-3">
+                        <span className={`capitalize font-medium text-sm ${ROLE_COLOUR[u.role] ?? ""}`}>{u.role}</span>
+                      </td>
+                      <td className="px-5 py-3">
+                        {u.totp_enabled ? (
+                          <span className="text-xs text-emerald-400 font-medium">✓ On</span>
+                        ) : (
+                          <span className="text-xs text-zinc-600">Off</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3">
+                        <span className={`text-xs font-medium ${u.active ? "text-emerald-400" : "text-red-400"}`}>
+                          {u.active ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => setEditingId(isEditing ? null : u.id)}
+                            className={`text-xs transition-colors ${isEditing ? "text-brand-teal" : "text-zinc-400 hover:text-white"}`}
+                          >
+                            {isEditing ? "Cancel" : "Edit"}
+                          </button>
+                          {u.totp_enabled && (
+                            <button
+                              onClick={() => handleReset2FA(u)}
+                              disabled={busy}
+                              className="text-xs text-zinc-500 hover:text-amber-400 transition-colors"
+                            >
+                              Reset 2FA
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleToggleActive(u)}
+                            disabled={busy}
+                            className={`text-xs transition-colors ${
+                              u.active ? "text-zinc-500 hover:text-red-400" : "text-zinc-500 hover:text-emerald-400"
+                            }`}
+                          >
+                            {u.active ? "Deactivate" : "Activate"}
+                          </button>
+                          <button
+                            onClick={() => handleDelete(u)}
+                            disabled={busy}
+                            className="text-xs text-zinc-600 hover:text-red-400 transition-colors"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {isEditing && (
+                      <UserEditForm
+                        key={`${u.id}-edit`}
+                        user={u}
+                        companies={companies}
+                        onSaved={() => { setEditingId(null); load(); }}
+                        onCancel={() => setEditingId(null)}
+                      />
+                    )}
+                  </>
                 );
               })}
             </tbody>

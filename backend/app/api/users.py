@@ -12,7 +12,7 @@ from app.core.database import get_db
 from app.core.security import hash_password
 from app.models.company import Company
 from app.models.user import User
-from app.schemas.user import UserAdminOut, UserCreate, UserOut
+from app.schemas.user import UserAdminOut, UserCreate, UserOut, UserUpdate
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -76,6 +76,58 @@ def create_user(
 @router.get("/me", response_model=UserOut)
 def my_profile(user: User = Depends(get_current_user)):
     return user
+
+
+@router.patch("/{user_id}", response_model=UserAdminOut)
+def update_user(
+    user_id: uuid.UUID,
+    body: UserUpdate,
+    caller: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    target = db.get(User, user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if body.email is not None:
+        conflict = db.execute(
+            select(User).where(User.email == body.email, User.id != user_id)
+        ).scalar_one_or_none()
+        if conflict:
+            raise HTTPException(status_code=409, detail="Email already in use")
+        target.email = body.email
+
+    if body.full_name is not None:
+        target.full_name = body.full_name or None
+    if body.role is not None:
+        target.role = body.role
+    if body.company_id is not None:
+        target.company_id = body.company_id
+    if body.active is not None:
+        if not body.active and str(target.id) == str(caller.id):
+            raise HTTPException(status_code=400, detail="Cannot deactivate yourself")
+        target.active = body.active
+
+    db.commit()
+    db.refresh(target)
+
+    # Reload with company relationship for response
+    db.expire(target)
+    target = db.execute(
+        select(User).options(joinedload(User.company)).where(User.id == user_id)
+    ).scalar_one()
+
+    return UserAdminOut(
+        id=target.id,
+        email=target.email,
+        full_name=target.full_name,
+        role=target.role,
+        company_id=target.company_id,
+        company_name=target.company.name if target.company else None,
+        active=target.active,
+        must_change_password=target.must_change_password,
+        totp_enabled=target.totp_enabled,
+    )
 
 
 @router.patch("/{user_id}/deactivate", response_model=UserOut)

@@ -35,6 +35,24 @@ class UserOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class UserUpdate(BaseModel):
+    email: EmailStr | None = None
+    full_name: str | None = None
+    role: str | None = None
+    company_id: uuid.UUID | None = None
+    active: bool | None = None
+
+    @field_validator("role")
+    @classmethod
+    def valid_role(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        allowed = {"owner", "bookkeeper", "viewer", "admin"}
+        if v not in allowed:
+            raise ValueError(f"role must be one of {allowed}")
+        return v
+
+
 class UserAdminOut(BaseModel):
     id: uuid.UUID
     email: str
