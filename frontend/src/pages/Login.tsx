@@ -57,6 +57,8 @@ export default function LoginPage() {
     const me = await getMe();
     if (me.data.must_change_password) {
       navigate("/change-password", { replace: true });
+    } else if (me.data.role === "admin") {
+      navigate("/admin", { replace: true });
     } else {
       navigate("/dashboard", { replace: true });
     }

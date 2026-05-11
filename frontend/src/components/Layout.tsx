@@ -6,7 +6,12 @@ import { useAuth } from "@/lib/auth";
 import GhostLogo from "@/components/GhostLogo";
 import type { SystemStatus } from "@/lib/types";
 
-const NAV = [
+const ADMIN_NAV = [
+  { to: "/admin", label: "Overview" },
+  { to: "/settings", label: "Settings" },
+];
+
+const CLIENT_NAV = [
   { to: "/dashboard", label: "Dashboard" },
   { to: "/upload", label: "Upload Files" },
   { to: "/reports", label: "Reports" },
@@ -153,6 +158,17 @@ export default function Layout() {
         if (!res.data.industry) navigate("/setup", { replace: true });
       }).catch(() => {});
     }
+    // Redirect admin away from client-only pages
+    if (user?.role === "admin") {
+      const clientOnlyPaths = ["/dashboard", "/upload", "/reports", "/setup"];
+      if (clientOnlyPaths.some((p) => location.pathname.startsWith(p))) {
+        navigate("/admin", { replace: true });
+      }
+    }
+    // Redirect non-admin away from admin-only pages
+    if (user?.role !== "admin" && location.pathname.startsWith("/admin")) {
+      navigate("/dashboard", { replace: true });
+    }
   }, [user, location.pathname, navigate]);
 
   const handleLogout = async () => {
@@ -160,9 +176,7 @@ export default function Layout() {
     window.location.href = "/login";
   };
 
-  const nav = user?.role === "admin"
-    ? [...NAV, { to: "/admin", label: "Admin" }]
-    : NAV;
+  const nav = user?.role === "admin" ? ADMIN_NAV : CLIENT_NAV;
 
   return (
     <div className="min-h-screen flex flex-col bg-black">
@@ -170,9 +184,18 @@ export default function Layout() {
         <StatusModal onClose={() => setStatusOpen(false)} />
       )}
 
-      {/* 2FA reminder banner — shown to all non-admin users who haven't enabled 2FA */}
+      {/* 2FA reminder banner — shown to client users who haven't enabled 2FA */}
       {user && user.role !== "admin" && !user.totp_enabled && (
         <TwoFABanner />
+      )}
+
+      {/* Admin role badge */}
+      {user?.role === "admin" && (
+        <div className="bg-brand-teal/10 border-b border-brand-teal/20 px-6 py-1.5 text-center">
+          <span className="text-xs text-brand-teal font-medium tracking-wide">
+            Numbers10 Admin &nbsp;·&nbsp; You are viewing the operator console — client data is not visible here
+          </span>
+        </div>
       )}
 
       {/* Top nav */}
