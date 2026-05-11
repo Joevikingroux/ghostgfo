@@ -71,6 +71,7 @@ def admin_overview(
             "agent_last_sync": agent.last_sync_at.isoformat() if agent and agent.last_sync_at else None,
             "agent_status": agent.last_sync_status if agent else None,
             "agent_active": bool(agent.active) if agent else False,
+            "agent_server_name": agent.server_name if agent else None,
         })
 
     health_dist = dict(Counter(

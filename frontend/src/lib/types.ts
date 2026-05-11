@@ -172,6 +172,7 @@ export interface AdminClientCard {
   agent_last_sync: string | null;
   agent_status: string | null;
   agent_active: boolean;
+  agent_server_name: string | null;
 }
 
 export interface AdminRecentReport {

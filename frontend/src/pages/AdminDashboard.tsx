@@ -244,6 +244,112 @@ function ClientCard({ c }: { c: AdminClientCard }) {
   );
 }
 
+// ─── Agent status panel ──────────────────────────────────────────────────────
+
+type AgentConnectionStatus = "online" | "stale" | "error" | "never_synced" | "inactive";
+
+const ONLINE_MS = 48 * 60 * 60 * 1000; // 48 h — agent missed at most 1 monthly run
+
+function agentConnectionStatus(c: AdminClientCard): AgentConnectionStatus {
+  if (!c.agent_active) return "inactive";
+  if (!c.agent_last_sync) return "never_synced";
+  const age = Date.now() - new Date(c.agent_last_sync).getTime();
+  if (c.agent_status !== "accepted") return "error";
+  if (age > ONLINE_MS) return "stale";
+  return "online";
+}
+
+const CONN_DOT: Record<AgentConnectionStatus, string> = {
+  online:       "bg-emerald-400",
+  stale:        "bg-amber-400",
+  error:        "bg-red-500",
+  never_synced: "bg-zinc-500",
+  inactive:     "bg-zinc-700",
+};
+
+const CONN_LABEL: Record<AgentConnectionStatus, string> = {
+  online:       "Online",
+  stale:        "Stale",
+  error:        "Error",
+  never_synced: "Never synced",
+  inactive:     "Inactive",
+};
+
+const CONN_TEXT: Record<AgentConnectionStatus, string> = {
+  online:       "text-emerald-400",
+  stale:        "text-amber-400",
+  error:        "text-red-400",
+  never_synced: "text-zinc-500",
+  inactive:     "text-zinc-600",
+};
+
+function AgentStatusPanel({ clients }: { clients: AdminClientCard[] }) {
+  const agentClients = clients.filter((c) => c.data_source === "evolution" || c.agent_active);
+  if (agentClients.length === 0) return null;
+
+  const statuses = agentClients.map((c) => ({ c, status: agentConnectionStatus(c) }));
+  const onlineCount  = statuses.filter((s) => s.status === "online").length;
+  const problemCount = statuses.filter((s) => s.status !== "online" && s.status !== "inactive").length;
+
+  return (
+    <div className="card p-5">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <span className={`w-2 h-2 rounded-full shrink-0 ${problemCount > 0 ? "bg-red-500 animate-pulse" : "bg-emerald-400 animate-pulse"}`} />
+          <h3 className="font-heading font-bold text-sm text-white">Agent Connections</h3>
+          <span className="text-xs text-zinc-600">· live</span>
+        </div>
+        <div className="flex items-center gap-3 text-xs">
+          <span className="text-emerald-400 font-medium">{onlineCount} online</span>
+          <span className="text-zinc-600">/</span>
+          <span className="text-zinc-400">{agentClients.length} total</span>
+          {problemCount > 0 && (
+            <span className="ml-1 px-2 py-0.5 rounded-full bg-red-950 border border-red-800 text-red-300 font-medium">
+              {problemCount} need attention
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Agent rows */}
+      <div className="divide-y divide-white/5">
+        {statuses.map(({ c, status }) => (
+          <div key={c.id} className="flex items-center gap-4 py-2.5 first:pt-0 last:pb-0">
+            {/* Status dot */}
+            <span className={`w-2 h-2 rounded-full shrink-0 ${CONN_DOT[status]} ${status === "online" ? "animate-pulse" : ""}`} />
+
+            {/* Company + server */}
+            <div className="flex-1 min-w-0">
+              <span className="text-sm font-medium text-zinc-200">{c.name}</span>
+              {c.agent_server_name && (
+                <span className="text-xs text-zinc-600 ml-2">{c.agent_server_name}</span>
+              )}
+            </div>
+
+            {/* Status label */}
+            <span className={`text-xs font-medium shrink-0 ${CONN_TEXT[status]}`}>
+              {CONN_LABEL[status]}
+            </span>
+
+            {/* Last sync */}
+            <span className="text-xs text-zinc-600 shrink-0 w-24 text-right">
+              {c.agent_last_sync ? timeAgo(c.agent_last_sync) : "—"}
+            </span>
+
+            {/* Error detail */}
+            {status === "error" && c.agent_status && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-950 border border-red-800 text-red-300 shrink-0">
+                {c.agent_status}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main page ───────────────────────────────────────────────────────────────
 
 export default function AdminDashboard() {
@@ -347,6 +453,9 @@ export default function AdminDashboard() {
 
       {/* System status */}
       <SystemStatusBar />
+
+      {/* Agent connections */}
+      <AgentStatusPanel clients={data.clients} />
 
       {/* Main grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
