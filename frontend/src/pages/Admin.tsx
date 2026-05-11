@@ -700,20 +700,20 @@ function CopyField({ label, value, secret }: { label: string; value: string; sec
 
 const BLANK_AGENT_FORM = { company_id: "", server_name: "", db_name: "", db_username: "", db_password: "" };
 
-function AgentsTab({ companies }: { companies: Company[] }) {
-  const [agents, setAgents] = useState<EvolutionAgent[]>([]);
-  const [loading, setLoading] = useState(true);
+function AgentsTab({
+  companies, agents, loading, onReload,
+}: {
+  companies: Company[];
+  agents: EvolutionAgent[];
+  loading: boolean;
+  onReload: () => void;
+}) {
   const [form, setForm] = useState(BLANK_AGENT_FORM);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const load = () =>
-    axios.get("/api/agent/agents", { withCredentials: true })
-      .then((r) => setAgents(r.data))
-      .finally(() => setLoading(false));
-
-  useEffect(() => { load(); }, []);
+  const load = onReload;
 
   const setF = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((p) => ({ ...p, [k]: e.target.value }));
@@ -941,17 +941,26 @@ type Tab = "companies" | "users" | "agents";
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>("companies");
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [agents, setAgents] = useState<EvolutionAgent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [agentsLoading, setAgentsLoading] = useState(true);
 
   const loadCompanies = () =>
     axios.get("/api/companies", { withCredentials: true })
       .then((r) => setCompanies(r.data))
       .finally(() => setLoading(false));
 
-  useEffect(() => { loadCompanies(); }, []);
+  const loadAgents = () => {
+    setAgentsLoading(true);
+    return axios.get("/api/agent/agents", { withCredentials: true })
+      .then((r) => setAgents(r.data))
+      .finally(() => setAgentsLoading(false));
+  };
+
+  useEffect(() => { loadCompanies(); loadAgents(); }, []);
 
   const activeCount = companies.filter((c) => c.active).length;
-  const evolutionCount = companies.filter((c) => c.data_source === "evolution").length;
+  const evolutionCount = agents.filter((a) => a.active).length;
   const mrr = companies
     .filter((c) => c.active)
     .reduce((sum, c) => {
@@ -1008,7 +1017,7 @@ export default function AdminPage() {
       ) : tab === "users" ? (
         <UsersTab companies={companies} />
       ) : (
-        <AgentsTab companies={companies} />
+        <AgentsTab companies={companies} agents={agents} loading={agentsLoading} onReload={loadAgents} />
       )}
     </div>
   );
