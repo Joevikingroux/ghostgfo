@@ -9,7 +9,7 @@
 ; Output: installer\Output\GhostCFOAgentSetup.exe
 
 #define AppName      "Ghost CFO Agent"
-#define AppVersion   "1.2.0"
+#define AppVersion   "1.3.0"
 #define AppPublisher "Numbers10 Technology Solutions"
 #define AppURL       "https://ghostcfo.numbers10.co.za"
 #define ExeName      "GhostCFOAgent.exe"
@@ -62,12 +62,14 @@ begin
     ''
   );
   ConfigPage.Add('API Key (provided by Numbers10):', False);
-  ConfigPage.Add('SQL Server name or IP address:', False);
+  ConfigPage.Add('AES Encryption Key (provided by Numbers10):', False);
+  ConfigPage.Add('SQL Server name or IP\instance:', False);
   ConfigPage.Add('Pastel Evolution database name:', False);
-  ConfigPage.Add('AES Encryption key (provided by Numbers10):', False);
+  ConfigPage.Add('SQL Server username:', False);
+  ConfigPage.Add('SQL Server password:', True);
   ConfigPage.Add('Ghost CFO portal URL:', False);
 
-  ConfigPage.Values[4] := 'https://ghostcfo.numbers10.co.za';
+  ConfigPage.Values[6] := 'https://ghostcfo.numbers10.co.za';
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -78,13 +80,16 @@ begin
       MsgBox('API Key is required.', mbError, MB_OK);
       Result := False;
     end else if Trim(ConfigPage.Values[1]) = '' then begin
-      MsgBox('SQL Server name is required.', mbError, MB_OK);
+      MsgBox('AES Encryption Key is required.', mbError, MB_OK);
       Result := False;
     end else if Trim(ConfigPage.Values[2]) = '' then begin
-      MsgBox('Database name is required.', mbError, MB_OK);
+      MsgBox('SQL Server name is required.', mbError, MB_OK);
       Result := False;
     end else if Trim(ConfigPage.Values[3]) = '' then begin
-      MsgBox('Encryption key is required.', mbError, MB_OK);
+      MsgBox('Database name is required.', mbError, MB_OK);
+      Result := False;
+    end else if Trim(ConfigPage.Values[4]) = '' then begin
+      MsgBox('SQL Server username is required.', mbError, MB_OK);
       Result := False;
     end;
   end;
@@ -93,18 +98,24 @@ end;
 function GetAPIKey(Param: String): String;
 begin Result := Trim(ConfigPage.Values[0]); end;
 
-function GetSQLServer(Param: String): String;
+function GetEncKey(Param: String): String;
 begin Result := Trim(ConfigPage.Values[1]); end;
 
-function GetDBName(Param: String): String;
+function GetSQLServer(Param: String): String;
 begin Result := Trim(ConfigPage.Values[2]); end;
 
-function GetEncKey(Param: String): String;
+function GetDBName(Param: String): String;
 begin Result := Trim(ConfigPage.Values[3]); end;
+
+function GetSQLUser(Param: String): String;
+begin Result := Trim(ConfigPage.Values[4]); end;
+
+function GetSQLPass(Param: String): String;
+begin Result := Trim(ConfigPage.Values[5]); end;
 
 function GetBaseURL(Param: String): String;
 begin
-  Result := Trim(ConfigPage.Values[4]);
+  Result := Trim(ConfigPage.Values[6]);
   if Result = '' then Result := 'https://ghostcfo.numbers10.co.za';
 end;
 
@@ -158,9 +169,9 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
 
 ; 1. Write config and register the Windows service
 Filename: "{#InstallDir}\{#ExeName}"; \
-  Parameters: "install --api-key=""{code:GetAPIKey}"" --server=""{code:GetSQLServer}"" --db=""{code:GetDBName}"" --encryption-key=""{code:GetEncKey}"" --base-url=""{code:GetBaseURL}"""; \
+  Parameters: "install --api-key=""{code:GetAPIKey}"" --server=""{code:GetSQLServer}"" --db=""{code:GetDBName}"" --username=""{code:GetSQLUser}"" --password=""{code:GetSQLPass}"" --encryption-key=""{code:GetEncKey}"" --base-url=""{code:GetBaseURL}"""; \
   Flags: runhidden waituntilterminated; \
-  StatusMsg: "Installing Ghost CFO Windows service…"
+  StatusMsg: "Installing Ghost CFO Agent and testing SQL connection…"
 
 ; 2. Start the service
 Filename: "sc.exe"; \
