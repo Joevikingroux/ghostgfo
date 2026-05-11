@@ -359,6 +359,23 @@ def system_status(
     )
 
 
+@router.post("/agents/{agent_id}/reactivate", response_model=AgentDetail)
+def reactivate_agent(
+    agent_id: str,
+    db: Session = Depends(get_db),
+    _: object = Depends(require_admin),
+) -> AgentDetail:
+    """Re-activate a previously deactivated agent."""
+    import uuid
+    agent = db.get(EvolutionAgent, uuid.UUID(agent_id))
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    agent.active = True
+    db.commit()
+    db.refresh(agent)
+    return _agent_detail(agent)
+
+
 @router.delete("/agents/{agent_id}")
 def deactivate_agent(
     agent_id: str,

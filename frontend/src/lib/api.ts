@@ -110,6 +110,10 @@ export const getRevenueTrends = () =>
     gross_profit: number;
   }>>("/reports/trends/revenue");
 
+// ---- Evolution agents ----
+export const reactivateAgent = (agent_id: string) =>
+  client.post(`/agent/agents/${agent_id}/reactivate`);
+
 // ---- Admin overview ----
 export const getAdminOverview = () => client.get<AdminOverview>("/admin/overview");
 

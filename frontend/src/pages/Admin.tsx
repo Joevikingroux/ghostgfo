@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { getUsers, adminReset2FA, deactivateUser, activateUser, updateUser } from "@/lib/api";
+import { getUsers, adminReset2FA, deactivateUser, activateUser, updateUser, reactivateAgent } from "@/lib/api";
 import type { Company, EvolutionAgent, UserAdminView } from "@/lib/types";
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -741,6 +741,11 @@ function AgentsTab({
     load();
   };
 
+  const activate = async (id: string) => {
+    await reactivateAgent(id);
+    load();
+  };
+
   const evolutionCompanies = companies.filter((c) => c.data_source === "evolution");
 
   return (
@@ -848,12 +853,19 @@ function AgentsTab({
                   >
                     {editingId === a.id ? "Done" : "Edit"}
                   </button>
-                  {a.active && (
+                  {a.active ? (
                     <button
                       onClick={() => deactivate(a.id)}
                       className="text-xs text-zinc-500 hover:text-red-400 transition-colors"
                     >
                       Deactivate
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => activate(a.id)}
+                      className="text-xs text-zinc-500 hover:text-emerald-400 transition-colors"
+                    >
+                      Activate
                     </button>
                   )}
                 </div>
