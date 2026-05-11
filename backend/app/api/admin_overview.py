@@ -6,11 +6,12 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import require_admin
 from app.core.database import get_db
 from app.models.company import Company
+from app.models.evolution_agent import EvolutionAgent  # noqa: F401 — required for joinedload
 from app.models.report import Report
 from app.models.user import User
 
@@ -26,8 +27,10 @@ def admin_overview(
 ) -> dict:
     """Single-call aggregated stats for the operator dashboard."""
     companies = db.execute(
-        select(Company).order_by(Company.name)
-    ).scalars().all()
+        select(Company)
+        .options(joinedload(Company.evolution_agent))
+        .order_by(Company.name)
+    ).unique().scalars().all()
 
     active = [c for c in companies if c.active]
     inactive = [c for c in companies if not c.active]
@@ -44,9 +47,10 @@ def admin_overview(
             select(Report)
             .where(Report.company_id == company.id)
             .order_by(Report.period_year.desc(), Report.period_month.desc())
-        ).scalar_one_or_none()
+            .limit(1)
+        ).scalars().first()
 
-        agent = getattr(company, "evolution_agent", None)
+        agent = company.evolution_agent
         m = report.metrics or {} if report else {}
 
         if report and report.payroll_pending:
