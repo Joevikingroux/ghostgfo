@@ -55,19 +55,21 @@ def _run_sync(
     period_year: int | None = None,
 ) -> None:
     log.info("=== Ghost CFO Agent — sync starting ===")
-    server = cfg["sql_server"]
-    db = cfg["sql_db"]
-    api_key = cfg["api_key"]
+    server         = cfg["sql_server"]
+    db             = cfg["sql_db"]
+    username       = cfg.get("sql_username", "")
+    password       = cfg.get("sql_password", "")
+    api_key        = cfg["api_key"]
     encryption_key = cfg["encryption_key"]
-    base_url = cfg.get("base_url", "https://ghostcfo.numbers10.co.za")
+    base_url       = cfg.get("base_url", "https://ghostcfo.numbers10.co.za")
 
     if period_month and period_year:
         log.info("Target period: %02d/%d (manual override)", period_month, period_year)
     else:
         log.info("Target period: previous month (automatic)")
 
-    log.info("Connecting to Pastel Evolution: %s / %s", server, db)
-    with evolution_db.connect(server=server, database=db) as conn:
+    log.info("Connecting to Pastel Evolution: %s / %s (user: %s)", server, db, username or "Windows auth")
+    with evolution_db.connect(server=server, database=db, username=username, password=password) as conn:
         log.info("Connection OK — extracting financial data…")
         data = extract(conn, period_month=period_month, period_year=period_year)
 
@@ -124,22 +126,36 @@ def service() -> None:
 
 @cli.command()
 @click.option("--api-key", required=True, help="Ghost CFO API key for this client.")
-@click.option("--server", required=True, help="SQL Server hostname or IP.")
+@click.option("--server", required=True, help="SQL Server hostname or IP\\instance.")
 @click.option("--db", required=True, help="Pastel Evolution database name.")
-@click.option("--encryption-key", required=True, help="32-byte AES encryption key.")
+@click.option("--username", required=True, help="SQL Server login username.")
+@click.option("--password", required=True, help="SQL Server login password.")
+@click.option("--encryption-key", required=True, help="AES-256 encryption key (from Ghost CFO admin).")
 @click.option("--base-url", default="https://ghostcfo.numbers10.co.za",
               show_default=True, help="Ghost CFO backend URL.")
-def install(api_key: str, server: str, db: str, encryption_key: str, base_url: str) -> None:
-    """Save config and install the Windows service via NSSM."""
+def install(api_key: str, server: str, db: str, username: str, password: str,
+            encryption_key: str, base_url: str) -> None:
+    """Save config and install the Windows scheduled task."""
     cfg = {
         "api_key": api_key,
         "sql_server": server,
         "sql_db": db,
+        "sql_username": username,
+        "sql_password": password,
         "encryption_key": encryption_key,
         "base_url": base_url,
     }
     _save_config(cfg)
     log.info("Config saved to %s", CONFIG_PATH)
+
+    # Test the SQL connection before installing the service
+    log.info("Testing SQL Server connection…")
+    if evolution_db.test_connection(server, db, username, password):
+        log.info("SQL connection OK.")
+        click.echo("[OK] SQL Server connection successful.")
+    else:
+        click.echo("[WARN] SQL Server connection test failed — check server/db/credentials.")
+        click.echo("       The agent will still be installed; fix credentials in C:\\GhostCFO\\config.json")
 
     from service.installer import install_service
     install_service()
