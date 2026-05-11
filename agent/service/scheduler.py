@@ -19,7 +19,8 @@ import httpx
 
 log = logging.getLogger(__name__)
 
-_POLL_INTERVAL_SECONDS = 5 * 60  # 5 minutes
+_POLL_INTERVAL_SECONDS  = 5 * 60  # 5 minutes — pending sync poll
+_HEARTBEAT_INTERVAL_SEC = 5 * 60  # 5 minutes — liveness ping
 
 
 def _next_monthly_run() -> datetime.datetime:
@@ -92,14 +93,25 @@ def _poll_thread(cfg: dict) -> None:
             log.debug("No pending sync request.")
 
 
+def _heartbeat_thread(cfg: dict) -> None:
+    from sync.uploader import send_heartbeat  # noqa: PLC0415
+    base_url = cfg.get("base_url", "https://ghostcfo.numbers10.co.za")
+    api_key  = cfg["api_key"]
+    log.info("Heartbeat thread started (interval=%ds).", _HEARTBEAT_INTERVAL_SEC)
+    while True:
+        send_heartbeat(api_key, base_url)
+        time.sleep(_HEARTBEAT_INTERVAL_SEC)
+
+
 def run_scheduler(cfg: dict) -> None:
-    """Start both threads and block forever."""
-    t_monthly = threading.Thread(target=_monthly_thread, args=(cfg,), daemon=True, name="monthly")
-    t_poll = threading.Thread(target=_poll_thread, args=(cfg,), daemon=True, name="poll")
+    """Start all threads and block forever."""
+    t_monthly   = threading.Thread(target=_monthly_thread,   args=(cfg,), daemon=True, name="monthly")
+    t_poll      = threading.Thread(target=_poll_thread,      args=(cfg,), daemon=True, name="poll")
+    t_heartbeat = threading.Thread(target=_heartbeat_thread, args=(cfg,), daemon=True, name="heartbeat")
     t_monthly.start()
     t_poll.start()
-    log.info("Ghost CFO Agent scheduler running (monthly + hourly poll).")
-    # Keep main thread alive
+    t_heartbeat.start()
+    log.info("Ghost CFO Agent scheduler running (monthly + poll + heartbeat).")
     try:
         while True:
             time.sleep(60)

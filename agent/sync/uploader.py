@@ -16,6 +16,24 @@ log = logging.getLogger(__name__)
 _TIMEOUT = 30  # seconds per request
 
 
+def send_heartbeat(api_key: str, base_url: str) -> None:
+    """POST a liveness ping to /api/agent/heartbeat.
+
+    Fire-and-forget — logs a warning on failure but never raises so the
+    calling thread continues uninterrupted.
+    """
+    url = base_url.rstrip("/") + "/api/agent/heartbeat"
+    try:
+        with httpx.Client(timeout=10, verify=True) as client:
+            resp = client.post(url, headers={"X-Agent-Key": api_key})
+        if resp.status_code not in (200, 204):
+            log.warning("Heartbeat returned HTTP %d", resp.status_code)
+        else:
+            log.debug("Heartbeat sent OK.")
+    except Exception as exc:
+        log.warning("Heartbeat failed: %s", exc)
+
+
 def upload_snapshot(
     payload_b64: str,
     api_key: str,

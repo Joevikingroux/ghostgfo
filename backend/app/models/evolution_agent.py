@@ -27,6 +27,7 @@ class EvolutionAgent(Base, UUIDPK):
     db_name: Mapped[str | None] = mapped_column(String(255))
     db_username: Mapped[str | None] = mapped_column(String(255))
     db_password: Mapped[str | None] = mapped_column(String(255))
+    last_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_sync_status: Mapped[str | None] = mapped_column(String(32))
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

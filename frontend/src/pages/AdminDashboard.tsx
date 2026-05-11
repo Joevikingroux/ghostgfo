@@ -229,15 +229,18 @@ function ClientCard({ c }: { c: AdminClientCard }) {
             ? `${formatPeriod(c.last_report_month, c.last_report_year!)}`
             : "No report yet"}
         </span>
-        {c.agent_last_sync ? (
-          <span className={`flex items-center gap-1 ${c.agent_active ? "text-emerald-500" : "text-zinc-600"}`}>
-            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${c.agent_active ? "bg-emerald-500" : "bg-zinc-600"}`} />
-            {timeAgo(c.agent_last_sync)}
-          </span>
-        ) : (
-          c.data_source === "evolution" && (
-            <span className="text-zinc-700">Agent not synced</span>
-          )
+        {c.data_source === "evolution" && (
+          c.agent_last_heartbeat
+            ? (() => {
+                const online = Date.now() - new Date(c.agent_last_heartbeat).getTime() <= 12 * 60 * 1000;
+                return (
+                  <span className={`flex items-center gap-1 ${online ? "text-emerald-500" : "text-red-400"}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${online ? "bg-emerald-400 animate-pulse" : "bg-red-500"}`} />
+                    {online ? "Connected" : `Offline · ${timeAgo(c.agent_last_heartbeat)}`}
+                  </span>
+                );
+              })()
+            : <span className="text-zinc-700">Awaiting first heartbeat</span>
         )}
       </div>
     </div>
@@ -246,41 +249,35 @@ function ClientCard({ c }: { c: AdminClientCard }) {
 
 // ─── Agent status panel ──────────────────────────────────────────────────────
 
-type AgentConnectionStatus = "online" | "stale" | "error" | "never_synced" | "inactive";
+type AgentConnectionStatus = "online" | "offline" | "inactive";
 
-const ONLINE_MS = 48 * 60 * 60 * 1000; // 48 h — agent missed at most 1 monthly run
+// Agent is "online" if it sent a heartbeat in the last 12 minutes
+// (5-min interval + 7-min grace for slow networks / sleep)
+const HEARTBEAT_GRACE_MS = 12 * 60 * 1000;
 
 function agentConnectionStatus(c: AdminClientCard): AgentConnectionStatus {
   if (!c.agent_active) return "inactive";
-  if (!c.agent_last_sync) return "never_synced";
-  const age = Date.now() - new Date(c.agent_last_sync).getTime();
-  if (c.agent_status !== "accepted") return "error";
-  if (age > ONLINE_MS) return "stale";
-  return "online";
+  if (!c.agent_last_heartbeat) return "offline";
+  const age = Date.now() - new Date(c.agent_last_heartbeat).getTime();
+  return age <= HEARTBEAT_GRACE_MS ? "online" : "offline";
 }
 
 const CONN_DOT: Record<AgentConnectionStatus, string> = {
-  online:       "bg-emerald-400",
-  stale:        "bg-amber-400",
-  error:        "bg-red-500",
-  never_synced: "bg-zinc-500",
-  inactive:     "bg-zinc-700",
+  online:   "bg-emerald-400",
+  offline:  "bg-red-500",
+  inactive: "bg-zinc-700",
 };
 
 const CONN_LABEL: Record<AgentConnectionStatus, string> = {
-  online:       "Online",
-  stale:        "Stale",
-  error:        "Error",
-  never_synced: "Awaiting first sync",
-  inactive:     "Inactive",
+  online:   "Connected",
+  offline:  "Offline",
+  inactive: "Inactive",
 };
 
 const CONN_TEXT: Record<AgentConnectionStatus, string> = {
-  online:       "text-emerald-400",
-  stale:        "text-amber-400",
-  error:        "text-red-400",
-  never_synced: "text-zinc-500",
-  inactive:     "text-zinc-600",
+  online:   "text-emerald-400",
+  offline:  "text-red-400",
+  inactive: "text-zinc-600",
 };
 
 function AgentStatusPanel({ clients }: { clients: AdminClientCard[] }) {
@@ -289,8 +286,7 @@ function AgentStatusPanel({ clients }: { clients: AdminClientCard[] }) {
 
   const statuses = agentClients.map((c) => ({ c, status: agentConnectionStatus(c) }));
   const onlineCount  = statuses.filter((s) => s.status === "online").length;
-  // never_synced = newly provisioned, waiting for first run — not a problem
-  const problemCount = statuses.filter((s) => s.status === "error" || s.status === "stale").length;
+  const problemCount = statuses.filter((s) => s.status === "offline").length;
 
   return (
     <div className="card p-5">
@@ -333,17 +329,17 @@ function AgentStatusPanel({ clients }: { clients: AdminClientCard[] }) {
               {CONN_LABEL[status]}
             </span>
 
-            {/* Last sync */}
+            {/* Heartbeat / last seen */}
             <span className="text-xs text-zinc-600 shrink-0 w-24 text-right">
-              {c.agent_last_sync ? timeAgo(c.agent_last_sync) : "—"}
+              {c.agent_last_heartbeat ? timeAgo(c.agent_last_heartbeat) : "Never connected"}
             </span>
 
-            {/* Error detail */}
-            {status === "error" && c.agent_status && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-950 border border-red-800 text-red-300 shrink-0">
-                {c.agent_status}
-              </span>
-            )}
+            {/* Last data sync (separate from connection) */}
+            <span className="text-xs text-zinc-600 shrink-0 hidden lg:block w-28 text-right">
+              {c.agent_last_sync
+                ? `Synced ${timeAgo(c.agent_last_sync)}`
+                : "No data yet"}
+            </span>
           </div>
         ))}
       </div>

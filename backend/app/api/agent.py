@@ -204,6 +204,21 @@ def agent_status(
     )
 
 
+@router.post("/heartbeat", status_code=204)
+def heartbeat(
+    x_agent_key: str = Header(alias="X-Agent-Key"),
+    db: Session = Depends(get_db),
+) -> None:
+    """Lightweight liveness ping — agent calls this every 5 minutes.
+
+    Updates last_heartbeat_at so the operator dashboard can show whether
+    the agent process is running, independently of the monthly data sync.
+    """
+    agent = _get_agent(x_agent_key, db)
+    agent.last_heartbeat_at = datetime.now(timezone.utc)
+    db.commit()
+
+
 # ---------------------------------------------------------------------------
 # Admin endpoints (JWT-authenticated — Numbers10 staff only)
 # ---------------------------------------------------------------------------

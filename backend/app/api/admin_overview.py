@@ -68,6 +68,7 @@ def admin_overview(
             "last_report_generated": report.generated_at.isoformat() if report and report.generated_at else None,
             "payroll_pending": bool(report.payroll_pending) if report else False,
             "email_sent": bool(report.email_sent) if report else False,
+            "agent_last_heartbeat": agent.last_heartbeat_at.isoformat() if agent and agent.last_heartbeat_at else None,
             "agent_last_sync": agent.last_sync_at.isoformat() if agent and agent.last_sync_at else None,
             "agent_status": agent.last_sync_status if agent else None,
             "agent_active": bool(agent.active) if agent else False,

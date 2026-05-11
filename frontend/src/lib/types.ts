@@ -169,6 +169,7 @@ export interface AdminClientCard {
   last_report_generated: string | null;
   payroll_pending: boolean;
   email_sent: boolean;
+  agent_last_heartbeat: string | null;
   agent_last_sync: string | null;
   agent_status: string | null;
   agent_active: boolean;
