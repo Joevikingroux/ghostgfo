@@ -215,6 +215,8 @@ class CreateAgentRequest(BaseModel):
     company_id: str
     server_name: str | None = None
     db_name: str | None = None
+    db_username: str | None = None
+    db_password: str | None = None
 
 
 class AgentDetail(BaseModel):
@@ -222,24 +224,30 @@ class AgentDetail(BaseModel):
     company_id: str
     company_name: str
     api_key: str
+    encryption_key: str
     server_name: str | None
     db_name: str | None
+    db_username: str | None
+    db_password: str | None
     last_sync_at: datetime | None
     last_sync_status: str | None
     active: bool
-    install_command: str
 
 
-def _install_command(api_key: str, server: str | None, db: str | None) -> str:
-    server_arg = f' --server="{server}"' if server else ' --server="<PASTE_SQL_SERVER_NAME>"'
-    db_arg = f' --db="{db}"' if db else ' --db="<EVOLUTION_DB_NAME>"'
-    return (
-        f"GhostCFOAgent.exe install"
-        f" --api-key={api_key}"
-        f"{server_arg}"
-        f"{db_arg}"
-        f" --encryption-key={settings.agent_encryption_key}"
-        f" --base-url={settings.base_url}"
+def _agent_detail(a: EvolutionAgent) -> AgentDetail:
+    return AgentDetail(
+        id=str(a.id),
+        company_id=str(a.company_id),
+        company_name=a.company.name,
+        api_key=a.api_key,
+        encryption_key=settings.agent_encryption_key,
+        server_name=a.server_name,
+        db_name=a.db_name,
+        db_username=a.db_username,
+        db_password=a.db_password,
+        last_sync_at=a.last_sync_at,
+        last_sync_status=a.last_sync_status,
+        active=a.active,
     )
 
 
@@ -249,21 +257,7 @@ def list_agents(
     _: object = Depends(require_admin),
 ) -> list[AgentDetail]:
     agents = db.execute(select(EvolutionAgent)).scalars().all()
-    return [
-        AgentDetail(
-            id=str(a.id),
-            company_id=str(a.company_id),
-            company_name=a.company.name,
-            api_key=a.api_key,
-            server_name=a.server_name,
-            db_name=a.db_name,
-            last_sync_at=a.last_sync_at,
-            last_sync_status=a.last_sync_status,
-            active=a.active,
-            install_command=_install_command(a.api_key, a.server_name, a.db_name),
-        )
-        for a in agents
-    ]
+    return [_agent_detail(a) for a in agents]
 
 
 @router.post("/agents", response_model=AgentDetail, status_code=201)
@@ -280,21 +274,90 @@ def create_agent(
         api_key=api_key,
         server_name=body.server_name,
         db_name=body.db_name,
+        db_username=body.db_username,
+        db_password=body.db_password,
     )
     db.add(agent)
     db.commit()
     db.refresh(agent)
-    return AgentDetail(
-        id=str(agent.id),
-        company_id=str(agent.company_id),
-        company_name=agent.company.name,
-        api_key=agent.api_key,
-        server_name=agent.server_name,
-        db_name=agent.db_name,
-        last_sync_at=None,
-        last_sync_status=None,
-        active=True,
-        install_command=_install_command(agent.api_key, agent.server_name, agent.db_name),
+    return _agent_detail(agent)
+
+
+@router.patch("/agents/{agent_id}", response_model=AgentDetail)
+def update_agent(
+    agent_id: str,
+    body: CreateAgentRequest,
+    db: Session = Depends(get_db),
+    _: object = Depends(require_admin),
+) -> AgentDetail:
+    """Update SQL connection details for an existing agent."""
+    import uuid
+    agent = db.get(EvolutionAgent, uuid.UUID(agent_id))
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    if body.server_name is not None:
+        agent.server_name = body.server_name
+    if body.db_name is not None:
+        agent.db_name = body.db_name
+    if body.db_username is not None:
+        agent.db_username = body.db_username
+    if body.db_password is not None:
+        agent.db_password = body.db_password
+    db.commit()
+    db.refresh(agent)
+    return _agent_detail(agent)
+
+
+class ServiceCheck(BaseModel):
+    ok: bool
+    message: str
+
+
+class SystemStatus(BaseModel):
+    database: ServiceCheck
+    redis: ServiceCheck
+    payfast: ServiceCheck
+    resend: ServiceCheck
+    openrouter: ServiceCheck
+    whatsapp: ServiceCheck
+    agent_key: ServiceCheck
+
+
+@router.get("/system-status", response_model=SystemStatus)
+def system_status(
+    db: Session = Depends(get_db),
+    _: object = Depends(require_admin),
+) -> SystemStatus:
+    """System connectivity and configuration status for admin dashboard."""
+    import sqlalchemy as _sa
+
+    # Database
+    try:
+        db.execute(_sa.text("SELECT 1"))
+        db_check = ServiceCheck(ok=True, message="Connected")
+    except Exception as exc:
+        db_check = ServiceCheck(ok=False, message=str(exc)[:120])
+
+    # Redis
+    try:
+        import redis as _redis
+        r = _redis.from_url(settings.redis_url, socket_connect_timeout=2)
+        r.ping()
+        redis_check = ServiceCheck(ok=True, message="Connected")
+    except Exception as exc:
+        redis_check = ServiceCheck(ok=False, message=str(exc)[:120])
+
+    def cfg(ok: bool, label: str) -> ServiceCheck:
+        return ServiceCheck(ok=ok, message="Configured" if ok else f"{label} not configured")
+
+    return SystemStatus(
+        database=db_check,
+        redis=redis_check,
+        payfast=cfg(bool(settings.payfast_merchant_id and settings.payfast_merchant_key), "PayFast credentials"),
+        resend=cfg(bool(settings.resend_api_key), "RESEND_API_KEY"),
+        openrouter=cfg(bool(settings.openrouter_api_key), "OPENROUTER_API_KEY"),
+        whatsapp=cfg(bool(settings.whatsapp_access_token and settings.whatsapp_phone_number_id), "WhatsApp credentials"),
+        agent_key=cfg(settings.agent_encryption_key not in ("", "change-me-32-bytes"), "AGENT_ENCRYPTION_KEY"),
     )
 
 

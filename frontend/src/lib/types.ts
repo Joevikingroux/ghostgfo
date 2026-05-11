@@ -124,10 +124,27 @@ export interface EvolutionAgent {
   company_id: string;
   company_name: string;
   api_key: string;
+  encryption_key: string;
   server_name: string | null;
   db_name: string | null;
+  db_username: string | null;
+  db_password: string | null;
   last_sync_at: string | null;
   last_sync_status: string | null;
   active: boolean;
-  install_command: string;
+}
+
+export interface ServiceCheck {
+  ok: boolean;
+  message: string;
+}
+
+export interface SystemStatus {
+  database: ServiceCheck;
+  redis: ServiceCheck;
+  payfast: ServiceCheck;
+  resend: ServiceCheck;
+  openrouter: ServiceCheck;
+  whatsapp: ServiceCheck;
+  agent_key: ServiceCheck;
 }

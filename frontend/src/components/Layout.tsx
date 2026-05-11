@@ -1,8 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import axios from "axios";
 import { logout, getCompany } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import GhostLogo from "@/components/GhostLogo";
+import type { SystemStatus } from "@/lib/types";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard" },
@@ -11,10 +13,72 @@ const NAV = [
   { to: "/settings", label: "Settings" },
 ];
 
+function StatusModal({ onClose }: { onClose: () => void }) {
+  const [status, setStatus] = useState<SystemStatus | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    axios.get<SystemStatus>("/api/agent/system-status", { withCredentials: true })
+      .then((r) => setStatus(r.data))
+      .catch(() => setError(true));
+  }, []);
+
+  const LABELS: Record<keyof SystemStatus, string> = {
+    database: "PostgreSQL Database",
+    redis: "Redis / Celery",
+    payfast: "PayFast",
+    resend: "Resend (Email)",
+    openrouter: "OpenRouter (LLM)",
+    whatsapp: "WhatsApp",
+    agent_key: "Agent Encryption Key",
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm bg-zinc-900 border border-white/10 rounded-xl p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="font-heading font-bold text-sm uppercase tracking-wider text-zinc-300">System Status</h2>
+          <button onClick={onClose} className="text-zinc-500 hover:text-white text-lg leading-none">×</button>
+        </div>
+
+        {error && <p className="text-red-400 text-sm">Failed to fetch status.</p>}
+        {!status && !error && <p className="text-zinc-500 text-sm">Checking…</p>}
+
+        {status && (
+          <div className="space-y-2">
+            {(Object.keys(LABELS) as (keyof SystemStatus)[]).map((key) => {
+              const check = status[key];
+              return (
+                <div key={key} className="flex items-center justify-between gap-3 py-1.5 border-b border-white/5 last:border-0">
+                  <span className="text-sm text-zinc-300">{LABELS[key]}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`text-xs ${check.ok ? "text-emerald-400" : "text-red-400"}`}>
+                      {check.ok ? "✓" : "✗"} {check.message}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <p className="text-xs text-zinc-600 mt-4 text-center">Double-click the logo to open this panel</p>
+      </div>
+    </div>
+  );
+}
+
 export default function Layout() {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [statusOpen, setStatusOpen] = useState(false);
 
   // Redirect owner to /setup on first login if company profile is incomplete
   useEffect(() => {
@@ -36,10 +100,16 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex flex-col bg-black">
+      {statusOpen && user?.role === "admin" && (
+        <StatusModal onClose={() => setStatusOpen(false)} />
+      )}
+
       {/* Top nav */}
       <header className="border-b border-surface-border px-6 h-14 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-8">
-          <GhostLogo size={30} showText textSize="text-lg" />
+          <span onDoubleClick={() => user?.role === "admin" && setStatusOpen(true)} className="cursor-default select-none">
+            <GhostLogo size={30} showText textSize="text-lg" />
+          </span>
           <nav className="flex items-center gap-1">
             {nav.map((n) => (
               <Link

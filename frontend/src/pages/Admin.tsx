@@ -592,78 +592,54 @@ function UsersTab({ companies }: { companies: Company[] }) {
 
 // ── Agents tab ─────────────────────────────────────────────────────────────
 
-const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-
-function ManualSyncGenerator({ agent }: { agent: EvolutionAgent }) {
-  const now = new Date();
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [year, setYear] = useState(now.getFullYear());
+function CopyField({ label, value, secret }: { label: string; value: string; secret?: boolean }) {
   const [copied, setCopied] = useState(false);
-
-  const cmd = `GhostCFOAgent.exe run --month ${month} --year ${year}`;
+  const [revealed, setRevealed] = useState(false);
 
   const copy = () => {
-    navigator.clipboard.writeText(cmd).then(() => {
+    navigator.clipboard.writeText(value).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     });
   };
 
   return (
-    <div className="border-t border-surface-border pt-3 space-y-2">
-      <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">Manual sync — pull a specific period</p>
-      <div className="flex flex-wrap items-end gap-3">
-        <div>
-          <label className="block text-xs text-zinc-600 mb-1">Month</label>
-          <select
-            value={month}
-            onChange={(e) => setMonth(Number(e.target.value))}
-            className="input-base text-xs py-1.5"
+    <div>
+      <p className="text-xs text-zinc-500 mb-1">{label}</p>
+      <div className="bg-black rounded-md px-3 py-2 flex items-center gap-2">
+        <code className={`flex-1 text-xs font-mono text-zinc-300 break-all ${secret && !revealed ? "blur-sm select-none" : ""}`}>
+          {value}
+        </code>
+        {secret && (
+          <button
+            type="button"
+            onClick={() => setRevealed((r) => !r)}
+            className="shrink-0 text-xs text-zinc-500 hover:text-white transition-colors"
           >
-            {MONTHS_SHORT.map((m, i) => (
-              <option key={i + 1} value={i + 1}>{m}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs text-zinc-600 mb-1">Year</label>
-          <input
-            type="number"
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
-            min={2020} max={2099}
-            className="input-base text-xs py-1.5 w-24"
-          />
-        </div>
-        <div className="flex-1 min-w-0">
-          <label className="block text-xs text-zinc-600 mb-1">Run this command on {agent.company_name}'s server</label>
-          <div className="bg-black rounded-md px-3 py-2 flex items-center justify-between gap-3">
-            <code className="text-xs text-zinc-300 font-mono truncate">{cmd}</code>
-            <button
-              type="button"
-              onClick={copy}
-              className="shrink-0 text-xs px-2 py-1 rounded bg-surface-card text-zinc-400 hover:text-white transition-colors"
-            >
-              {copied ? "Copied!" : "Copy"}
-            </button>
-          </div>
-        </div>
+            {revealed ? "Hide" : "Show"}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={copy}
+          className="shrink-0 text-xs px-2 py-1 rounded bg-surface-card text-zinc-400 hover:text-white transition-colors"
+        >
+          {copied ? "Copied!" : "Copy"}
+        </button>
       </div>
-      <p className="text-xs text-zinc-600">
-        Log file on client's server: <code className="text-zinc-400">C:\GhostCFO\agent.log</code>
-      </p>
     </div>
   );
 }
 
+const BLANK_AGENT_FORM = { company_id: "", server_name: "", db_name: "", db_username: "", db_password: "" };
+
 function AgentsTab({ companies }: { companies: Company[] }) {
   const [agents, setAgents] = useState<EvolutionAgent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState<string | null>(null);
-
-  const [form, setForm] = useState({ company_id: "", server_name: "", db_name: "" });
+  const [form, setForm] = useState(BLANK_AGENT_FORM);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const load = () =>
     axios.get("/api/agent/agents", { withCredentials: true })
@@ -672,12 +648,8 @@ function AgentsTab({ companies }: { companies: Company[] }) {
 
   useEffect(() => { load(); }, []);
 
-  const copyCommand = (cmd: string, id: string) => {
-    navigator.clipboard.writeText(cmd).then(() => {
-      setCopied(id);
-      setTimeout(() => setCopied(null), 2500);
-    });
-  };
+  const setF = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm((p) => ({ ...p, [k]: e.target.value }));
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -686,7 +658,7 @@ function AgentsTab({ companies }: { companies: Company[] }) {
     setCreateError("");
     try {
       await axios.post("/api/agent/agents", form, { withCredentials: true });
-      setForm({ company_id: "", server_name: "", db_name: "" });
+      setForm(BLANK_AGENT_FORM);
       load();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
@@ -706,52 +678,77 @@ function AgentsTab({ companies }: { companies: Company[] }) {
 
   return (
     <div className="space-y-6">
+      {/* Provision form */}
       <div className="card p-5">
         <h2 className="font-heading text-sm font-bold text-brand-teal uppercase tracking-wider mb-4">
           Provision New Agent
         </h2>
-        <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
-          <div>
-            <label className="block text-xs text-zinc-400 mb-1">Company</label>
-            <select
-              value={form.company_id}
-              onChange={(e) => setForm((p) => ({ ...p, company_id: e.target.value }))}
-              className="input-base w-full"
-              required
-            >
-              <option value="">Select company…</option>
-              {evolutionCompanies.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
+        <form onSubmit={handleCreate} className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-3">
+              <label className="block text-xs text-zinc-400 mb-1">Company</label>
+              <select
+                value={form.company_id}
+                onChange={(e) => setForm((p) => ({ ...p, company_id: e.target.value }))}
+                className="input-base w-full"
+                required
+              >
+                <option value="">Select company…</option>
+                {evolutionCompanies.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">SQL Server</label>
+              <input
+                type="text"
+                placeholder="SERVERNAME\SQLEXPRESS"
+                value={form.server_name}
+                onChange={setF("server_name")}
+                className="input-base w-full"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">Database Name</label>
+              <input
+                type="text"
+                placeholder="PASTEL_EVOLUTION_DB"
+                value={form.db_name}
+                onChange={setF("db_name")}
+                className="input-base w-full"
+              />
+            </div>
+            <div>{/* spacer */}</div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">SQL Username</label>
+              <input
+                type="text"
+                placeholder="ghostcfo_reader"
+                value={form.db_username}
+                onChange={setF("db_username")}
+                className="input-base w-full"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">SQL Password</label>
+              <input
+                type="password"
+                placeholder="••••••••"
+                value={form.db_password}
+                onChange={setF("db_password")}
+                className="input-base w-full"
+              />
+            </div>
           </div>
-          <div>
-            <label className="block text-xs text-zinc-400 mb-1">SQL Server</label>
-            <input
-              type="text"
-              placeholder="SERVERNAME\SQLEXPRESS"
-              value={form.server_name}
-              onChange={(e) => setForm((p) => ({ ...p, server_name: e.target.value }))}
-              className="input-base w-full"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-zinc-400 mb-1">Database Name</label>
-            <input
-              type="text"
-              placeholder="PASTEL_EVOLUTION_DB"
-              value={form.db_name}
-              onChange={(e) => setForm((p) => ({ ...p, db_name: e.target.value }))}
-              className="input-base w-full"
-            />
-          </div>
-          <button type="submit" disabled={creating} className="btn-primary h-9">
+          {createError && <p className="text-red-400 text-xs">{createError}</p>}
+          <button type="submit" disabled={creating} className="btn-primary">
             {creating ? "Creating…" : "Create Agent"}
           </button>
         </form>
-        {createError && <p className="text-red-400 text-xs mt-2">{createError}</p>}
       </div>
 
+      {/* Agent list */}
       {loading ? (
         <p className="text-zinc-500 text-sm">Loading agents…</p>
       ) : agents.length === 0 ? (
@@ -759,12 +756,14 @@ function AgentsTab({ companies }: { companies: Company[] }) {
       ) : (
         <div className="space-y-3">
           {agents.map((a) => (
-            <div key={a.id} className="card p-4 space-y-3">
+            <div key={a.id} className="card p-4 space-y-4">
+              {/* Header row */}
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="font-medium text-sm">{a.company_name}</p>
+                  <p className="font-medium">{a.company_name}</p>
                   <p className="text-xs text-zinc-500 mt-0.5">
                     {a.server_name ?? "—"} &nbsp;/&nbsp; {a.db_name ?? "—"}
+                    {a.db_username && <span> &nbsp;·&nbsp; user: {a.db_username}</span>}
                   </p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
@@ -773,11 +772,15 @@ function AgentsTab({ companies }: { companies: Company[] }) {
                     <p className="text-xs mt-0.5">{fmt(a.last_sync_at)}</p>
                   </div>
                   {syncBadge(a.last_sync_status)}
-                  {a.active ? (
-                    <span className="text-xs text-emerald-400 font-medium">Active</span>
-                  ) : (
-                    <span className="text-xs text-red-400 font-medium">Inactive</span>
-                  )}
+                  <span className={`text-xs font-medium ${a.active ? "text-emerald-400" : "text-red-400"}`}>
+                    {a.active ? "Active" : "Inactive"}
+                  </span>
+                  <button
+                    onClick={() => setEditingId(editingId === a.id ? null : a.id)}
+                    className="text-xs text-zinc-500 hover:text-white transition-colors"
+                  >
+                    {editingId === a.id ? "Done" : "Edit"}
+                  </button>
                   {a.active && (
                     <button
                       onClick={() => deactivate(a.id)}
@@ -788,26 +791,79 @@ function AgentsTab({ companies }: { companies: Company[] }) {
                   )}
                 </div>
               </div>
-              <div>
-                <p className="text-xs text-zinc-500 mb-1.5">Install command (run once on client's server)</p>
-                <div className="bg-black rounded-md p-3 flex items-start justify-between gap-3">
-                  <code className="text-xs text-zinc-300 break-all font-mono leading-relaxed">
-                    {a.install_command}
-                  </code>
-                  <button
-                    onClick={() => copyCommand(a.install_command, a.id)}
-                    className="shrink-0 text-xs px-2 py-1 rounded bg-surface-card text-zinc-400 hover:text-white transition-colors"
-                  >
-                    {copied === a.id ? "Copied!" : "Copy"}
-                  </button>
-                </div>
+
+              {/* Credentials */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <CopyField label="API Key" value={a.api_key} secret />
+                <CopyField label="AES Encryption Key" value={a.encryption_key} secret />
               </div>
-              <ManualSyncGenerator agent={a} />
+
+              {/* Inline edit for SQL connection details */}
+              {editingId === a.id && (
+                <AgentEditForm agent={a} onSaved={() => { setEditingId(null); load(); }} />
+              )}
             </div>
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+function AgentEditForm({ agent, onSaved }: { agent: EvolutionAgent; onSaved: () => void }) {
+  const [form, setForm] = useState({
+    server_name: agent.server_name ?? "",
+    db_name: agent.db_name ?? "",
+    db_username: agent.db_username ?? "",
+    db_password: agent.db_password ?? "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const setF = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm((p) => ({ ...p, [k]: e.target.value }));
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      await axios.patch(`/api/agent/agents/${agent.id}`, { company_id: agent.company_id, ...form }, { withCredentials: true });
+      onSaved();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setError(msg || "Failed to save.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSave} className="border-t border-surface-border pt-3 space-y-3">
+      <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">Update SQL Connection</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs text-zinc-400 mb-1">SQL Server</label>
+          <input value={form.server_name} onChange={setF("server_name")} className="input-base w-full" placeholder="SERVERNAME\SQLEXPRESS" />
+        </div>
+        <div>
+          <label className="block text-xs text-zinc-400 mb-1">Database Name</label>
+          <input value={form.db_name} onChange={setF("db_name")} className="input-base w-full" placeholder="PASTEL_EVOLUTION_DB" />
+        </div>
+        <div>
+          <label className="block text-xs text-zinc-400 mb-1">SQL Username</label>
+          <input value={form.db_username} onChange={setF("db_username")} className="input-base w-full" placeholder="ghostcfo_reader" />
+        </div>
+        <div>
+          <label className="block text-xs text-zinc-400 mb-1">SQL Password</label>
+          <input type="password" value={form.db_password} onChange={setF("db_password")} className="input-base w-full" placeholder="••••••••" />
+        </div>
+      </div>
+      {error && <p className="text-red-400 text-xs">{error}</p>}
+      <button type="submit" disabled={saving} className="btn-primary">
+        {saving ? "Saving…" : "Save Changes"}
+      </button>
+    </form>
   );
 }
 
