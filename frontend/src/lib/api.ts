@@ -96,6 +96,12 @@ export const getReportStatus = (id: string) =>
 export const downloadReport = (id: string) =>
   client.get(`/reports/${id}/download`, { responseType: "blob" });
 
+export const sendReportEmail = (id: string) =>
+  client.post<{ ok: boolean; to: string }>(`/reports/${id}/send-email`);
+
+export const sendReportWhatsApp = (id: string) =>
+  client.post<{ ok: boolean; to: string }>(`/reports/${id}/send-whatsapp`);
+
 export const getRevenueTrends = () =>
   client.get<Array<{
     period_month: number;

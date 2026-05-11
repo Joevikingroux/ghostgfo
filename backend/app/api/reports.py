@@ -143,3 +143,102 @@ def resend_report(
     from app.tasks.deliver_report import deliver_report_task
     deliver_report_task.delay(str(report_id))
     return {"status": "queued", "report_id": str(report_id)}
+
+
+@router.post("/{report_id}/send-email")
+def send_email_manual(
+    report_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Send the report PDF by email to the company owner."""
+    from datetime import datetime, timezone
+
+    from app.reports.email import send_report_email
+
+    report = db.get(Report, report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    _check_access(report, user)
+    if not report.pdf_path:
+        raise HTTPException(status_code=400, detail="PDF not yet generated")
+
+    company = report.company
+    if not company:
+        raise HTTPException(status_code=400, detail="Company not found")
+
+    recipient = company.owner_email or company.bookkeeper_email
+    if not recipient:
+        raise HTTPException(status_code=400, detail="No email address configured for this company")
+
+    narrative = {
+        "summary": report.narrative_summary,
+        "revenue": report.narrative_revenue,
+        "costs": report.narrative_costs,
+        "debtors": report.narrative_debtors,
+        "payroll": report.narrative_payroll,
+        "cash": report.narrative_cash,
+        "actions": report.narrative_actions,
+    }
+
+    ok = send_report_email(
+        to_email=recipient,
+        to_name=company.owner_name or company.name,
+        company_name=company.trading_name or company.name,
+        metrics=report.metrics or {},
+        narrative=narrative,
+        pdf_path=report.pdf_path,
+    )
+
+    if ok:
+        report.email_sent = True
+        report.email_sent_at = datetime.now(timezone.utc)
+        db.commit()
+
+    if not ok:
+        raise HTTPException(status_code=502, detail="Email delivery failed — check server logs")
+
+    return {"ok": True, "to": recipient}
+
+
+@router.post("/{report_id}/send-whatsapp")
+def send_whatsapp_manual(
+    report_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Send the report summary via WhatsApp to the company owner."""
+    from datetime import datetime, timezone
+
+    from app.reports.whatsapp import send_whatsapp_message
+
+    report = db.get(Report, report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    _check_access(report, user)
+
+    company = report.company
+    if not company:
+        raise HTTPException(status_code=400, detail="Company not found")
+
+    wa_number = company.owner_whatsapp
+    if not wa_number:
+        raise HTTPException(status_code=400, detail="No WhatsApp number configured for this company")
+
+    ok = send_whatsapp_message(
+        to_number=wa_number,
+        company_name=company.trading_name or company.name,
+        metrics=report.metrics or {},
+        narrative_summary=report.narrative_summary,
+        narrative_actions=report.narrative_actions,
+    )
+
+    if ok:
+        report.whatsapp_sent = True
+        report.whatsapp_sent_at = datetime.now(timezone.utc)
+        db.commit()
+
+    if not ok:
+        raise HTTPException(status_code=502, detail="WhatsApp delivery failed — check server logs")
+
+    return {"ok": True, "to": wa_number[:6] + "****"}

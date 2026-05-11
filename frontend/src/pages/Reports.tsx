@@ -1,23 +1,19 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
-import { getReports, triggerPdfDownload, getMe } from "@/lib/api";
+import { getReports, triggerPdfDownload, sendReportEmail, sendReportWhatsApp } from "@/lib/api";
 import { formatPeriod } from "@/lib/format";
-import type { ReportListItem, User } from "@/lib/types";
+import type { ReportListItem } from "@/lib/types";
 
 export default function ReportsPage() {
   const [reports, setReports] = useState<ReportListItem[]>([]);
-  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState<string | null>(null);
-  const [redelivering, setRedelivering] = useState<string | null>(null);
-  const [toast, setToast] = useState("");
+  const [sendingEmail, setSendingEmail] = useState<string | null>(null);
+  const [sendingWhatsApp, setSendingWhatsApp] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean }>({ msg: "", ok: true });
 
   useEffect(() => {
-    Promise.all([getReports(), getMe()])
-      .then(([r, u]) => {
-        setReports(r.data);
-        setUser(u.data);
-      })
+    getReports()
+      .then((r) => setReports(r.data))
       .finally(() => setLoading(false));
   }, []);
 
@@ -31,21 +27,41 @@ export default function ReportsPage() {
     }
   };
 
-  const handleRedeliver = async (r: ReportListItem) => {
-    setRedelivering(r.id);
+  const handleSendEmail = async (r: ReportListItem) => {
+    setSendingEmail(r.id);
     try {
-      await axios.post(`/api/reports/${r.id}/deliver`, {}, { withCredentials: true });
-      showToast("Delivery queued — email and WhatsApp will be sent shortly.");
-    } catch {
-      showToast("Re-delivery failed. Check admin logs.");
+      const res = await sendReportEmail(r.id);
+      showToast(`Email sent to ${res.data.to}`, true);
+      setReports((prev) =>
+        prev.map((x) => (x.id === r.id ? { ...x, email_sent: true } : x))
+      );
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      showToast(detail ?? "Email failed — check server logs.", false);
     } finally {
-      setRedelivering(null);
+      setSendingEmail(null);
     }
   };
 
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(""), 4000);
+  const handleSendWhatsApp = async (r: ReportListItem) => {
+    setSendingWhatsApp(r.id);
+    try {
+      const res = await sendReportWhatsApp(r.id);
+      showToast(`WhatsApp sent to ${res.data.to}`, true);
+      setReports((prev) =>
+        prev.map((x) => (x.id === r.id ? { ...x, whatsapp_sent: true } : x))
+      );
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      showToast(detail ?? "WhatsApp failed — check server logs.", false);
+    } finally {
+      setSendingWhatsApp(null);
+    }
+  };
+
+  const showToast = (msg: string, ok: boolean) => {
+    setToast({ msg, ok });
+    setTimeout(() => setToast({ msg: "", ok: true }), 4000);
   };
 
   if (loading) return <div className="text-zinc-500 text-sm">Loading…</div>;
@@ -59,9 +75,15 @@ export default function ReportsPage() {
         </p>
       </div>
 
-      {toast && (
-        <div className="bg-emerald-900 border border-emerald-700 text-emerald-200 text-sm px-4 py-3 rounded-lg">
-          {toast}
+      {toast.msg && (
+        <div
+          className={`text-sm px-4 py-3 rounded-lg border ${
+            toast.ok
+              ? "bg-emerald-900 border-emerald-700 text-emerald-200"
+              : "bg-red-950 border-red-800 text-red-300"
+          }`}
+        >
+          {toast.msg}
         </div>
       )}
 
@@ -115,15 +137,25 @@ export default function ReportsPage() {
                       <span className="text-xs text-zinc-500 px-3 py-1.5">Generating…</span>
                     )}
 
-                    {user?.role === "admin" && r.pdf_ready && (
+                    {r.pdf_ready && (
                       <button
-                        onClick={() => handleRedeliver(r)}
-                        disabled={redelivering === r.id}
+                        onClick={() => handleSendEmail(r)}
+                        disabled={sendingEmail === r.id}
+                        title="Send report PDF by email"
                         className="btn-ghost text-xs px-3 py-1.5 border border-surface-border"
                       >
-                        {redelivering === r.id ? "…" : "Re-send"}
+                        {sendingEmail === r.id ? "…" : "Email"}
                       </button>
                     )}
+
+                    <button
+                      onClick={() => handleSendWhatsApp(r)}
+                      disabled={sendingWhatsApp === r.id || !r.generated_at}
+                      title="Send report summary via WhatsApp"
+                      className="btn-ghost text-xs px-3 py-1.5 border border-surface-border disabled:opacity-40"
+                    >
+                      {sendingWhatsApp === r.id ? "…" : "WhatsApp"}
+                    </button>
                   </div>
                 </div>
               </div>
