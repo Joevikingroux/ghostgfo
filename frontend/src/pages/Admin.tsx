@@ -242,10 +242,6 @@ function EditCompanyForm({ company, onSaved, onCancel }: {
           <label className="block text-xs text-zinc-400 mb-1">Owner Email</label>
           <input type="email" value={form.owner_email} onChange={set("owner_email")} className="input-base w-full" />
         </div>
-        <div>
-          <label className="block text-xs text-zinc-400 mb-1">Telegram Chat ID</label>
-          <input value={form.owner_telegram} onChange={set("owner_telegram")} className="input-base w-full" placeholder="e.g. 123456789" />
-        </div>
       </div>
 
       <p className="text-xs text-zinc-500 uppercase tracking-wider pt-1">Bookkeeper Contact</p>
