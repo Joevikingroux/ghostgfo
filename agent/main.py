@@ -25,6 +25,9 @@ from sync.uploader import upload_snapshot
 CONFIG_PATH = Path(r"C:\GhostCFO\config.json")
 LOG_PATH = Path(r"C:\GhostCFO\agent.log")
 
+# Ensure the install directory exists before opening the log file
+LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s  %(levelname)-8s  %(message)s",
