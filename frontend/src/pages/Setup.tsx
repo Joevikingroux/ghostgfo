@@ -27,7 +27,6 @@ export default function SetupPage() {
 
   const [form, setForm] = useState({
     industry: "",
-    owner_whatsapp: "",
     trading_name: "",
     vat_number: "",
     reg_number: "",
@@ -126,19 +125,7 @@ export default function SetupPage() {
             </div>
 
             <div className="rounded-xl border border-white/10 bg-white/3 p-6 space-y-4">
-              <h2 className="font-heading font-semibold text-sm text-zinc-400 uppercase tracking-wider">Delivery & contact</h2>
-
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1">Owner WhatsApp number</label>
-                <input
-                  type="tel"
-                  value={form.owner_whatsapp}
-                  onChange={set("owner_whatsapp")}
-                  className="input-base w-full"
-                  placeholder="+27 82 000 0000"
-                />
-                <p className="text-xs text-zinc-600 mt-1">Used to send your monthly report via WhatsApp (Professional & Premium plans).</p>
-              </div>
+              <h2 className="font-heading font-semibold text-sm text-zinc-400 uppercase tracking-wider">Bookkeeper</h2>
 
               <div>
                 <label className="block text-xs text-zinc-400 mb-1">Bookkeeper name</label>

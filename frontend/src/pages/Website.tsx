@@ -224,7 +224,7 @@ function Hero() {
 
         <p className="text-zinc-400 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed mb-10">
           Ghost CFO connects to your Sage Pastel accounting system and delivers a
-          monthly plain-language financial report — by email and WhatsApp — that
+          monthly plain-language financial report — delivered by email — that
           tells you exactly what happened, why it matters, and what to do about it.
         </p>
 
@@ -301,7 +301,6 @@ function ReportPreviewCard() {
         </div>
         <div className="flex items-center gap-2 pt-1">
           <span className="text-[10px] text-zinc-500">Delivered via</span>
-          <span className="bg-[#1a2e1a] text-emerald-400 text-[10px] font-semibold px-2 py-0.5 rounded">WhatsApp</span>
           <span className="bg-[#1a1a2e] text-blue-400 text-[10px] font-semibold px-2 py-0.5 rounded">Email PDF</span>
         </div>
       </div>
@@ -316,7 +315,7 @@ function SocialProof() {
     "Sage Pastel Evolution",
     "Pastel Partner",
     "Pastel Payroll",
-    "PDF + WhatsApp delivery",
+    "Email PDF delivery",
     "Plain English • Afrikaans",
     "From R500/month",
   ];
@@ -360,7 +359,7 @@ function HowItWorks() {
     {
       num: "03",
       title: "You receive the report",
-      desc: "On the 1st of every month you receive a plain-language PDF by email and a summary on WhatsApp. No spreadsheets. No jargon. Just clear answers to: how did my business do?",
+      desc: "On the 1st of every month you receive a plain-language PDF by email. No spreadsheets. No jargon. Just clear answers to: how did my business do?",
     },
   ];
 
@@ -408,8 +407,8 @@ function Features() {
     },
     {
       icon: Icon.phone,
-      title: "WhatsApp + email delivery",
-      desc: "Receive your report where you actually read messages. A full PDF to your email, a punchy summary to your WhatsApp. Done by 7am on the 1st.",
+      title: "Email PDF delivery",
+      desc: "Receive your full report as a professionally formatted PDF by email on the 1st of every month. Done by 7am — ready when you start your day.",
     },
     {
       icon: Icon.users,
@@ -419,7 +418,7 @@ function Features() {
     {
       icon: Icon.bell,
       title: "Debtor alerts",
-      desc: "Get a WhatsApp alert the moment an invoice crosses 61 days overdue — with the customer name and amount. No more discovering late payments at month-end.",
+      desc: "Ghost CFO flags overdue invoices in your monthly report — showing exactly which customers owe what and for how long. No more discovering late payments at month-end.",
     },
     {
       icon: Icon.chart,
@@ -495,7 +494,6 @@ function Pricing() {
       tagline: "For active business owners",
       features: [
         "Everything in Starter",
-        "WhatsApp delivery",
         "Weekly cash pulse (Monday)",
         "Debtor overdue alerts",
         "Payroll cost analysis",
@@ -735,10 +733,10 @@ function CTAStrip() {
             <span className="group-hover:translate-x-1 transition-transform">{Icon.arrow}</span>
           </Link>
           <a
-            href="https://wa.me/27000000000"
+            href="mailto:info@numbers10.co.za"
             className="flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-white font-semibold border border-white/10 hover:border-white/25 transition-all text-base"
           >
-            WhatsApp us
+            Email us
           </a>
         </div>
       </div>

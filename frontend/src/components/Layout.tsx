@@ -35,7 +35,6 @@ function StatusModal({ onClose }: { onClose: () => void }) {
     payfast: "PayFast",
     resend: "Resend (Email)",
     openrouter: "OpenRouter (LLM)",
-    whatsapp: "WhatsApp",
     agent_key: "Agent Encryption Key",
   };
 

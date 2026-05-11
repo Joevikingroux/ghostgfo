@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getReports, triggerPdfDownload, sendReportEmail, sendReportTelegram } from "@/lib/api";
+import { getReports, triggerPdfDownload, sendReportEmail } from "@/lib/api";
 import { formatPeriod } from "@/lib/format";
 import type { ReportListItem } from "@/lib/types";
 
@@ -8,7 +8,6 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
-  const [sendingTelegram, setSendingWhatsApp] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean }>({ msg: "", ok: true });
 
   useEffect(() => {
@@ -43,22 +42,6 @@ export default function ReportsPage() {
     }
   };
 
-  const handleSendTelegram = async (r: ReportListItem) => {
-    setSendingWhatsApp(r.id);
-    try {
-      const res = await sendReportTelegram(r.id);
-      showToast(`WhatsApp sent to ${res.data.to}`, true);
-      setReports((prev) =>
-        prev.map((x) => (x.id === r.id ? { ...x, telegram_sent: true } : x))
-      );
-    } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      showToast(detail ?? "WhatsApp failed — check server logs.", false);
-    } finally {
-      setSendingWhatsApp(null);
-    }
-  };
-
   const showToast = (msg: string, ok: boolean) => {
     setToast({ msg, ok });
     setTimeout(() => setToast({ msg: "", ok: true }), 4000);
@@ -71,7 +54,7 @@ export default function ReportsPage() {
       <div>
         <h1 className="font-heading text-2xl font-bold">Reports</h1>
         <p className="text-zinc-400 text-sm mt-1">
-          All generated financial reports — download as PDF, view delivery status, or re-send.
+          All generated financial reports — download as PDF or re-send by email.
         </p>
       </div>
 
@@ -117,13 +100,14 @@ export default function ReportsPage() {
                     </div>
                   )}
 
-                  {/* Delivery badges */}
-                  <div className="flex gap-1.5">
-                    <DeliveryBadge sent={r.email_sent} label="Email" />
-                    <DeliveryBadge sent={r.telegram_sent} label="Telegram" />
-                  </div>
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full ${
+                      r.email_sent ? "bg-emerald-950 text-emerald-400" : "bg-zinc-800 text-zinc-500"
+                    }`}
+                  >
+                    {r.email_sent ? "✓" : "○"} Email
+                  </span>
 
-                  {/* Actions */}
                   <div className="flex gap-2">
                     {r.pdf_ready ? (
                       <button
@@ -141,21 +125,12 @@ export default function ReportsPage() {
                       <button
                         onClick={() => handleSendEmail(r)}
                         disabled={sendingEmail === r.id}
-                        title="Send report PDF by email"
+                        title="Re-send report PDF by email"
                         className="btn-ghost text-xs px-3 py-1.5 border border-surface-border"
                       >
-                        {sendingEmail === r.id ? "…" : "Email"}
+                        {sendingEmail === r.id ? "…" : "Send Email"}
                       </button>
                     )}
-
-                    <button
-                      onClick={() => handleSendTelegram(r)}
-                      disabled={sendingTelegram === r.id || !r.generated_at}
-                      title="Send report summary via Telegram"
-                      className="btn-ghost text-xs px-3 py-1.5 border border-surface-border disabled:opacity-40"
-                    >
-                      {sendingTelegram === r.id ? "…" : "Telegram"}
-                    </button>
                   </div>
                 </div>
               </div>
@@ -164,17 +139,5 @@ export default function ReportsPage() {
         </div>
       )}
     </div>
-  );
-}
-
-function DeliveryBadge({ sent, label }: { sent: boolean; label: string }) {
-  return (
-    <span
-      className={`text-xs px-2 py-0.5 rounded-full ${
-        sent ? "bg-emerald-950 text-emerald-400" : "bg-zinc-800 text-zinc-500"
-      }`}
-    >
-      {sent ? "✓" : "○"} {label}
-    </span>
   );
 }

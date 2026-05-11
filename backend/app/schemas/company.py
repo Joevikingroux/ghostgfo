@@ -15,7 +15,7 @@ class CompanyCreate(BaseModel):
     industry: str | None = None
     owner_name: str | None = None
     owner_email: EmailStr | None = None
-    owner_telegram: str | None = None
+
     bookkeeper_name: str | None = None
     bookkeeper_email: EmailStr | None = None
     plan: str = "starter"
@@ -31,7 +31,7 @@ class CompanyUpdate(BaseModel):
     vat_number: str | None = None
     owner_name: str | None = None
     owner_email: EmailStr | None = None
-    owner_telegram: str | None = None
+
     bookkeeper_name: str | None = None
     bookkeeper_email: EmailStr | None = None
     language: str | None = None

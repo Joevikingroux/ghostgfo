@@ -20,7 +20,7 @@ const PLANS = [
     name: "Professional",
     price: 900,
     popular: true,
-    features: ["Everything in Starter", "WhatsApp delivery", "Weekly cash pulse", "Debtor alerts"],
+    features: ["Everything in Starter", "Weekly cash pulse", "Debtor alerts"],
   },
   {
     id: "premium",

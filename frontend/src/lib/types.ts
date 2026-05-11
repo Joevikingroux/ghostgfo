@@ -27,7 +27,6 @@ export interface Company {
   industry: string | null;
   owner_name: string | null;
   owner_email: string | null;
-  owner_telegram: string | null;
   bookkeeper_name: string | null;
   bookkeeper_email: string | null;
   plan: "starter" | "professional" | "premium";
@@ -105,7 +104,6 @@ export interface Report {
   narrative_actions: string | null;
   pdf_path: string | null;
   email_sent: boolean;
-  telegram_sent: boolean;
   generated_at: string | null;
   created_at: string;
 }
@@ -119,7 +117,6 @@ export interface ReportListItem {
   health_rating: string | null;
   pdf_ready: boolean;
   email_sent: boolean;
-  telegram_sent: boolean;
   generated_at: string | null;
 }
 
@@ -159,6 +156,5 @@ export interface SystemStatus {
   payfast: ServiceCheck;
   resend: ServiceCheck;
   openrouter: ServiceCheck;
-  telegram: ServiceCheck;
   agent_key: ServiceCheck;
 }

@@ -95,7 +95,6 @@ def report_status(
         "generated": report.generated_at is not None,
         "pdf_ready": bool(report.pdf_path),
         "email_sent": report.email_sent,
-        "telegram_sent": report.telegram_sent,
         "health_score": report.metrics.get("health_score") if report.metrics else None,
         "health_rating": report.metrics.get("health_rating") if report.metrics else None,
     }
@@ -199,46 +198,3 @@ def send_email_manual(
         raise HTTPException(status_code=502, detail="Email delivery failed — check server logs")
 
     return {"ok": True, "to": recipient}
-
-
-@router.post("/{report_id}/send-telegram")
-def send_telegram_manual(
-    report_id: uuid.UUID,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> dict:
-    """Send the report summary via Telegram to the company owner."""
-    from datetime import datetime, timezone
-
-    from app.reports.telegram import send_telegram_message
-
-    report = db.get(Report, report_id)
-    if not report:
-        raise HTTPException(status_code=404, detail="Report not found")
-    _check_access(report, user)
-
-    company = report.company
-    if not company:
-        raise HTTPException(status_code=400, detail="Company not found")
-
-    chat_id = company.owner_telegram
-    if not chat_id:
-        raise HTTPException(status_code=400, detail="No Telegram chat ID configured for this company")
-
-    ok = send_telegram_message(
-        chat_id=chat_id,
-        company_name=company.trading_name or company.name,
-        metrics=report.metrics or {},
-        narrative_summary=report.narrative_summary,
-        narrative_actions=report.narrative_actions,
-    )
-
-    if ok:
-        report.telegram_sent = True
-        report.telegram_sent_at = datetime.now(timezone.utc)
-        db.commit()
-
-    if not ok:
-        raise HTTPException(status_code=502, detail="Telegram delivery failed — check server logs")
-
-    return {"ok": True, "to": chat_id}

@@ -40,9 +40,6 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 1200
     llm_timeout_seconds: int = 60
 
-    # Telegram
-    telegram_bot_token: str = ""
-    telegram_webhook_secret: str = ""  # optional X-Telegram-Bot-Api-Secret-Token
 
     # Email (Resend — resend.com)
     resend_api_key: str = ""

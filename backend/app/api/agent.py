@@ -319,7 +319,6 @@ class SystemStatus(BaseModel):
     payfast: ServiceCheck
     resend: ServiceCheck
     openrouter: ServiceCheck
-    telegram: ServiceCheck
     agent_key: ServiceCheck
 
 
@@ -356,7 +355,6 @@ def system_status(
         payfast=cfg(bool(settings.payfast_merchant_id and settings.payfast_merchant_key), "PayFast credentials"),
         resend=cfg(bool(settings.resend_api_key), "RESEND_API_KEY"),
         openrouter=cfg(bool(settings.openrouter_api_key), "OPENROUTER_API_KEY"),
-        telegram=cfg(bool(settings.telegram_bot_token), "TELEGRAM_BOT_TOKEN"),
         agent_key=cfg(settings.agent_encryption_key not in ("", "change-me-32-bytes"), "AGENT_ENCRYPTION_KEY"),
     )
 
