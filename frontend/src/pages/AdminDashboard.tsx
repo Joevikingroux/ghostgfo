@@ -271,7 +271,7 @@ const CONN_LABEL: Record<AgentConnectionStatus, string> = {
   online:       "Online",
   stale:        "Stale",
   error:        "Error",
-  never_synced: "Never synced",
+  never_synced: "Awaiting first sync",
   inactive:     "Inactive",
 };
 
@@ -289,7 +289,8 @@ function AgentStatusPanel({ clients }: { clients: AdminClientCard[] }) {
 
   const statuses = agentClients.map((c) => ({ c, status: agentConnectionStatus(c) }));
   const onlineCount  = statuses.filter((s) => s.status === "online").length;
-  const problemCount = statuses.filter((s) => s.status !== "online" && s.status !== "inactive").length;
+  // never_synced = newly provisioned, waiting for first run — not a problem
+  const problemCount = statuses.filter((s) => s.status === "error" || s.status === "stale").length;
 
   return (
     <div className="card p-5">
