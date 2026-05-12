@@ -492,8 +492,8 @@ function Pricing() {
       ],
       compatibility: {
         partner: true,
-        evolution: true,
-        payroll: false,
+        evolution: false,
+        payroll: true,
       },
       popular: false,
     },
@@ -511,7 +511,7 @@ function Pricing() {
         "Afrikaans language option",
       ],
       compatibility: {
-        partner: true,
+        partner: false,
         evolution: true,
         payroll: true,
       },
@@ -532,7 +532,7 @@ function Pricing() {
         "Dedicated account manager",
       ],
       compatibility: {
-        partner: true,
+        partner: false,
         evolution: true,
         payroll: true,
       },
@@ -545,6 +545,7 @@ function Pricing() {
     { key: "evolution" as const, label: "Pastel Evolution", color: "#06B6D4" },
     { key: "payroll" as const, label: "Pastel Payroll", color: "#818CF8" },
   ];
+  // Starter = Partner; Professional/Premium = Evolution; Payroll = all plans
 
   return (
     <section id="pricing" className="py-24 max-w-6xl mx-auto px-6">
@@ -665,19 +666,19 @@ function PastelBadges() {
       name: "Sage Pastel Partner",
       desc: "CSV/Excel export upload — takes 5 minutes",
       color: "#2DD4BF",
-      starter: true, professional: true, premium: true,
+      starter: true, professional: false, premium: false,
     },
     {
       name: "Sage Pastel Evolution",
       desc: "Direct SQL — automatic monthly sync via agent",
       color: "#06B6D4",
-      starter: true, professional: true, premium: true,
+      starter: false, professional: true, premium: true,
     },
     {
       name: "Sage Pastel Payroll",
       desc: "Payroll exports — full staff cost breakdown",
       color: "#818CF8",
-      starter: false, professional: true, premium: true,
+      starter: true, professional: true, premium: true,
     },
   ];
 
@@ -741,8 +742,7 @@ function PastelBadges() {
           {/* Footer note */}
           <div className="border-t border-white/5 px-5 py-3 bg-[#050505]">
             <p className="text-zinc-600 text-xs">
-              Payroll analysis requires Sage Pastel Payroll exports — available on Professional and Premium plans.
-              Starter clients get full accounting analysis without the payroll breakdown.
+              Starter uses Sage Pastel Partner (file upload). Professional and Premium connect directly to Sage Pastel Evolution via the Ghost CFO Agent. Pastel Payroll is supported on all plans.
             </p>
           </div>
         </div>
