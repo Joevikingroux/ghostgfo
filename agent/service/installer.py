@@ -126,10 +126,18 @@ def _build_monthly_xml(exe_path: str) -> str:
 
 
 def _build_poll_xml(exe_path: str) -> str:
-    """Task XML: poll every 5 minutes starting at boot, runs as SYSTEM.
+    """Task XML: poll every 5 minutes, runs as SYSTEM, survives reboots.
 
-    Sends a heartbeat ping + checks for pending on-demand sync requests.
-    The BootTrigger ensures it fires after every reboot and then repeats.
+    Two triggers work together:
+      TimeTrigger  — fires every 5 min continuously while the machine is on.
+                     StartBoundary in the past so the first firing happens at
+                     the next 5-min clock boundary after the task is created.
+      BootTrigger  — fires 1 min after each reboot then hands off to the
+                     TimeTrigger repetition. Guarantees the agent comes back
+                     online quickly after a server restart.
+
+    MultipleInstancesPolicy=IgnoreNew prevents overlap if both triggers fire
+    at the same time.
     """
     return f"""<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
@@ -138,13 +146,17 @@ def _build_poll_xml(exe_path: str) -> str:
     <URI>\\{TASK_POLL}</URI>
   </RegistrationInfo>
   <Triggers>
-    <BootTrigger>
+    <TimeTrigger>
+      <StartBoundary>2020-01-01T00:00:00</StartBoundary>
       <Enabled>true</Enabled>
-      <Delay>PT1M</Delay>
       <Repetition>
         <Interval>PT5M</Interval>
         <StopAtDurationEnd>false</StopAtDurationEnd>
       </Repetition>
+    </TimeTrigger>
+    <BootTrigger>
+      <Enabled>true</Enabled>
+      <Delay>PT1M</Delay>
     </BootTrigger>
   </Triggers>
   <Principals>
