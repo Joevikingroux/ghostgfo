@@ -174,19 +174,16 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
 
 [Run]
 
-; 1. Write config and register the Windows service
+; 1. Write config, register scheduled tasks, test SQL connection
 Filename: "{#InstallDir}\{#ExeName}"; \
   Parameters: "install --api-key=""{code:GetAPIKey}"" --server=""{code:GetSQLServer}"" --db=""{code:GetDBName}"" --username=""{code:GetSQLUser}"" --password=""{code:GetSQLPass}"" --encryption-key=""{code:GetEncKey}"" --base-url=""{code:GetBaseURL}"""; \
   Flags: runhidden waituntilterminated; \
   StatusMsg: "Installing Ghost CFO Agent and testing SQL connection…"
 
-; 2. Start the service
-Filename: "sc.exe"; \
-  Parameters: "start GhostCFOAgent"; \
-  Flags: runhidden waituntilterminated; \
-  StatusMsg: "Starting Ghost CFO service…"
+; NOTE: install_service() already fires the poll task once immediately (schtasks /Run).
+; No separate sc.exe start step needed — the agent uses Task Scheduler, not a Windows service.
 
-; 3. Launch tray icon immediately (no reboot required)
+; 2. Launch tray icon immediately (no reboot required)
 Filename: "{#InstallDir}\{#ExeName}"; \
   Parameters: "tray"; \
   Flags: nowait postinstall skipifsilent; \
@@ -197,8 +194,7 @@ Filename: "{#InstallDir}\{#ExeName}"; \
 ; ---------------------------------------------------------------------------
 
 [UninstallRun]
-Filename: "sc.exe"; Parameters: "stop GhostCFOAgent"; Flags: runhidden
-Filename: "sc.exe"; Parameters: "delete GhostCFOAgent"; Flags: runhidden
+Filename: "{#InstallDir}\{#ExeName}"; Parameters: "uninstall"; Flags: runhidden waituntilterminated
 Filename: "taskkill.exe"; Parameters: "/f /im {#ExeName}"; Flags: runhidden
 
 [UninstallDelete]

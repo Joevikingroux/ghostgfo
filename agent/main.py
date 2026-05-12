@@ -120,8 +120,32 @@ def run(month: int | None, year: int | None) -> None:
 
 
 @cli.command()
+def poll() -> None:
+    """Send a heartbeat ping and check for pending on-demand sync requests.
+
+    Called every 5 minutes by the GhostCFOAgentPoll scheduled task.
+    Exits after completing — Task Scheduler handles the repeat interval.
+    """
+    cfg = _load_config()
+    base_url = cfg.get("base_url", "https://ghostcfo.numbers10.co.za")
+    api_key = cfg["api_key"]
+
+    from sync.uploader import send_heartbeat
+    send_heartbeat(api_key, base_url)
+
+    from service.scheduler import _check_pending
+    pending = _check_pending(cfg)
+    if pending:
+        month, year = pending
+        log.info("Pending sync request: %02d/%d — running now.", month, year)
+        _run_sync(cfg, period_month=month, period_year=year)
+    else:
+        log.debug("No pending sync requests.")
+
+
+@cli.command()
 def service() -> None:
-    """Entry point called by NSSM on startup — runs monthly + polls hourly for on-demand syncs."""
+    """Legacy: start long-running scheduler (monthly + poll threads). Kept for compatibility."""
     cfg = _load_config()
     from service.scheduler import run_scheduler
     run_scheduler(cfg)
