@@ -88,6 +88,9 @@ export const getReports = () => client.get<ReportListItem[]>("/reports");
 
 export const getReport = (id: string) => client.get<Report>(`/reports/${id}`);
 
+export const deleteReport = (id: string) =>
+  client.delete(`/reports/${id}`);
+
 export const getReportStatus = (id: string) =>
   client.get<{ id: string; generated: boolean; pdf_ready: boolean; health_score: number | null }>(
     `/reports/${id}/status`

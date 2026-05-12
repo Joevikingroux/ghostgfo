@@ -214,6 +214,26 @@ def send_email_manual(
     return {"ok": True, "to": all_to}
 
 
+@router.delete("/{report_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_report(
+    report_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    report = db.get(Report, report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    _check_access(report, user)
+
+    if report.pdf_path:
+        pdf = Path(report.pdf_path)
+        if pdf.exists():
+            pdf.unlink(missing_ok=True)
+
+    db.delete(report)
+    db.commit()
+
+
 @router.patch("/{report_id}/commentary", response_model=dict)
 def update_commentary(
     report_id: uuid.UUID,

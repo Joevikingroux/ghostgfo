@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getReports, triggerPdfDownload, sendReportEmail } from "@/lib/api";
+import { getReports, triggerPdfDownload, sendReportEmail, deleteReport } from "@/lib/api";
 import { formatPeriod } from "@/lib/format";
 import type { ReportListItem } from "@/lib/types";
 
@@ -11,6 +11,8 @@ export default function ReportsPage() {
   // which report has the extra-recipients panel open
   const [emailPanelId, setEmailPanelId] = useState<string | null>(null);
   const [extraEmails, setExtraEmails] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean }>({ msg: "", ok: true });
 
   useEffect(() => {
@@ -55,6 +57,20 @@ export default function ReportsPage() {
       showToast(detail ?? "Email failed — check server logs.", false);
     } finally {
       setSendingEmail(null);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    setDeleting(id);
+    try {
+      await deleteReport(id);
+      setReports((prev) => prev.filter((r) => r.id !== id));
+      showToast("Report deleted.", true);
+    } catch {
+      showToast("Delete failed — try again.", false);
+    } finally {
+      setDeleting(null);
+      setConfirmDeleteId(null);
     }
   };
 
@@ -156,9 +172,44 @@ export default function ReportsPage() {
                         Send Email
                       </button>
                     )}
+
+                    <button
+                      onClick={() =>
+                        confirmDeleteId === r.id
+                          ? setConfirmDeleteId(null)
+                          : setConfirmDeleteId(r.id)
+                      }
+                      className="btn-ghost text-xs px-3 py-1.5 border border-red-900 text-red-400 hover:bg-red-950"
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
               </div>
+
+              {/* Delete confirmation panel */}
+              {confirmDeleteId === r.id && (
+                <div className="border-t border-red-900/40 px-4 py-3 bg-red-950/20 flex items-center justify-between">
+                  <p className="text-xs text-red-300">
+                    Permanently delete this report and its PDF? This cannot be undone.
+                  </p>
+                  <div className="flex gap-2 ml-4 shrink-0">
+                    <button
+                      onClick={() => setConfirmDeleteId(null)}
+                      className="btn-ghost text-xs px-3 py-1.5"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => handleDelete(r.id)}
+                      disabled={deleting === r.id}
+                      className="text-xs px-3 py-1.5 rounded bg-red-700 hover:bg-red-600 text-white font-medium"
+                    >
+                      {deleting === r.id ? "Deleting…" : "Yes, delete"}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Extra recipients panel */}
               {emailPanelId === r.id && (
