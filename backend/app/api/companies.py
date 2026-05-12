@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, require_admin
+from app.api.deps import get_current_user, require_admin, require_staff
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.logging import get_logger
@@ -71,7 +71,7 @@ def _provision_bookkeeper(
 
 @router.get("", response_model=list[CompanyOut])
 def list_companies(
-    user: User = Depends(require_admin),
+    user: User = Depends(require_staff),
     db: Session = Depends(get_db),
 ):
     rows = db.execute(select(Company).order_by(Company.name)).scalars().all()
@@ -91,7 +91,7 @@ def _enforce_data_source(data: dict) -> dict:
 @router.post("", response_model=CompanyOut, status_code=status.HTTP_201_CREATED)
 def create_company(
     body: CompanyCreate,
-    user: User = Depends(require_admin),
+    user: User = Depends(require_staff),
     db: Session = Depends(get_db),
 ):
     data = _enforce_data_source(body.model_dump())
@@ -115,7 +115,7 @@ def get_company(
     company = db.get(Company, company_id)
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
-    if user.role != "admin" and user.company_id != company_id:
+    if user.role not in ("admin", "tech") and user.company_id != company_id:
         raise HTTPException(status_code=403, detail="Access denied")
     return company
 
@@ -131,8 +131,8 @@ def update_company(
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
 
-    # Non-admins can only update their own company, and cannot change plan/active/data_source
-    if user.role != "admin":
+    # Non-staff can only update their own company, and cannot change plan/active/data_source
+    if user.role not in ("admin", "tech"):
         if user.company_id != company_id:
             raise HTTPException(status_code=403, detail="Access denied")
         restricted = body.model_dump(exclude_none=True)
@@ -160,7 +160,7 @@ def update_company(
 @router.delete("/{company_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_company(
     company_id: uuid.UUID,
-    user: User = Depends(require_admin),
+    user: User = Depends(require_staff),
     db: Session = Depends(get_db),
 ):
     company = db.get(Company, company_id)

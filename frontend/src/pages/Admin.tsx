@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { getUsers, adminReset2FA, deactivateUser, activateUser, updateUser, reactivateAgent, createUser, adminResetPassword } from "@/lib/api";
+import { getUsers, adminReset2FA, deactivateUser, activateUser, updateUser, reactivateAgent, deactivateAgent, deleteAgent, createUser, adminResetPassword } from "@/lib/api";
 import type { Company, EvolutionAgent, UserAdminView } from "@/lib/types";
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -459,7 +459,7 @@ function UserEditForm({
                 <option value="owner">Owner</option>
                 <option value="bookkeeper">Bookkeeper</option>
                 <option value="viewer">Viewer</option>
-                <option value="admin">Admin (Numbers10 only)</option>
+                <option value="tech">Tech (staff access)</option>
               </select>
             </div>
             <div>
@@ -487,6 +487,7 @@ function UserEditForm({
 
 const ROLE_COLOUR: Record<string, string> = {
   admin: "text-brand-teal",
+  tech: "text-cyan-400",
   owner: "text-white",
   bookkeeper: "text-zinc-300",
   viewer: "text-zinc-500",
@@ -571,6 +572,7 @@ function NewUserForm({ companies, onCreated }: { companies: Company[]; onCreated
                 <option value="owner">Owner</option>
                 <option value="bookkeeper">Bookkeeper</option>
                 <option value="viewer">Viewer</option>
+                <option value="tech">Tech (staff access)</option>
               </select>
             </div>
             <div>
@@ -723,46 +725,50 @@ function UsersTab({ companies }: { companies: Company[] }) {
                       </td>
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => setEditingId(isEditing ? null : u.id)}
-                            className={`text-xs transition-colors ${isEditing ? "text-brand-teal" : "text-zinc-400 hover:text-white"}`}
-                          >
-                            {isEditing ? "Cancel" : "Edit"}
-                          </button>
-                          {u.totp_enabled && (
-                            <button
-                              onClick={() => handleReset2FA(u)}
-                              disabled={busy}
-                              className="text-xs text-zinc-500 hover:text-amber-400 transition-colors"
-                            >
-                              Reset 2FA
-                            </button>
+                          {u.role === "admin" ? (
+                            <span className="text-xs text-zinc-600 italic">Protected</span>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => setEditingId(isEditing ? null : u.id)}
+                                className={`text-xs transition-colors ${isEditing ? "text-brand-teal" : "text-zinc-400 hover:text-white"}`}
+                              >
+                                {isEditing ? "Cancel" : "Edit"}
+                              </button>
+                              {u.totp_enabled && (
+                                <button
+                                  onClick={() => handleReset2FA(u)}
+                                  disabled={busy}
+                                  className="text-xs text-zinc-500 hover:text-amber-400 transition-colors"
+                                >
+                                  Reset 2FA
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleResetPassword(u)}
+                                disabled={busy}
+                                className="text-xs text-zinc-500 hover:text-sky-400 transition-colors"
+                              >
+                                Reset Password
+                              </button>
+                              <button
+                                onClick={() => handleToggleActive(u)}
+                                disabled={busy}
+                                className={`text-xs transition-colors ${
+                                  u.active ? "text-zinc-500 hover:text-red-400" : "text-zinc-500 hover:text-emerald-400"
+                                }`}
+                              >
+                                {u.active ? "Deactivate" : "Activate"}
+                              </button>
+                              <button
+                                onClick={() => handleDelete(u)}
+                                disabled={busy}
+                                className="text-xs text-zinc-600 hover:text-red-400 transition-colors"
+                              >
+                                Delete
+                              </button>
+                            </>
                           )}
-                          {u.role !== "admin" && (
-                            <button
-                              onClick={() => handleResetPassword(u)}
-                              disabled={busy}
-                              className="text-xs text-zinc-500 hover:text-sky-400 transition-colors"
-                            >
-                              Reset Password
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleToggleActive(u)}
-                            disabled={busy}
-                            className={`text-xs transition-colors ${
-                              u.active ? "text-zinc-500 hover:text-red-400" : "text-zinc-500 hover:text-emerald-400"
-                            }`}
-                          >
-                            {u.active ? "Deactivate" : "Activate"}
-                          </button>
-                          <button
-                            onClick={() => handleDelete(u)}
-                            disabled={busy}
-                            className="text-xs text-zinc-600 hover:text-red-400 transition-colors"
-                          >
-                            Delete
-                          </button>
                         </div>
                       </td>
                     </tr>
@@ -867,12 +873,18 @@ function AgentsTab({
 
   const deactivate = async (id: string) => {
     if (!confirm("Deactivate this agent? The client's agent will stop syncing.")) return;
-    await axios.delete(`/api/agent/agents/${id}`, { withCredentials: true });
+    await deactivateAgent(id);
     load();
   };
 
   const activate = async (id: string) => {
     await reactivateAgent(id);
+    load();
+  };
+
+  const handleDeleteAgent = async (id: string, companyName: string) => {
+    if (!confirm(`Permanently delete the agent for ${companyName}? This cannot be undone — you will need to provision a new agent and re-install it on the client's server.`)) return;
+    await deleteAgent(id);
     load();
   };
 
@@ -986,7 +998,7 @@ function AgentsTab({
                   {a.active ? (
                     <button
                       onClick={() => deactivate(a.id)}
-                      className="text-xs text-zinc-500 hover:text-red-400 transition-colors"
+                      className="text-xs text-zinc-500 hover:text-amber-400 transition-colors"
                     >
                       Deactivate
                     </button>
@@ -998,6 +1010,12 @@ function AgentsTab({
                       Activate
                     </button>
                   )}
+                  <button
+                    onClick={() => handleDeleteAgent(a.id, a.company_name)}
+                    className="text-xs text-zinc-600 hover:text-red-400 transition-colors"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
 

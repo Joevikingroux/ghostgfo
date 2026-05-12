@@ -124,6 +124,12 @@ export const getRevenueTrends = () =>
 export const reactivateAgent = (agent_id: string) =>
   client.post(`/agent/agents/${agent_id}/reactivate`);
 
+export const deactivateAgent = (agent_id: string) =>
+  client.post(`/agent/agents/${agent_id}/deactivate`);
+
+export const deleteAgent = (agent_id: string) =>
+  client.delete(`/agent/agents/${agent_id}`);
+
 export const forceSyncAgent = (agent_id: string, month: number, year: number) =>
   client.post<{ ok: boolean; queued_month: number; queued_year: number }>(
     `/agent/agents/${agent_id}/force-sync`,

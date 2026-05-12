@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
-from app.api.deps import require_admin
+from app.api.deps import require_staff
 from app.core.database import get_db
 from app.models.company import Company
 from app.models.evolution_agent import EvolutionAgent  # noqa: F401 — required for joinedload
@@ -22,7 +22,7 @@ _PLAN_MRR = {"starter": 500, "professional": 900, "premium": 1500}
 
 @router.get("/overview")
 def admin_overview(
-    _: User = Depends(require_admin),
+    _: User = Depends(require_staff),
     db: Session = Depends(get_db),
 ) -> dict:
     """Single-call aggregated stats for the operator dashboard."""

@@ -53,6 +53,13 @@ def require_admin(user: User = Depends(get_current_user)) -> User:
     return user
 
 
+def require_staff(user: User = Depends(get_current_user)) -> User:
+    """Allow both 'admin' and 'tech' roles."""
+    if user.role not in ("admin", "tech"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff access required")
+    return user
+
+
 def require_company_access(
     company_id: str,
     user: User = Depends(get_current_user),

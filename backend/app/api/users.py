@@ -107,6 +107,9 @@ def update_user(
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
 
+    if target.role == "admin":
+        raise HTTPException(status_code=403, detail="Admin user details cannot be changed here")
+
     if body.email is not None:
         conflict = db.execute(
             select(User).where(User.email == body.email, User.id != user_id)
@@ -118,6 +121,8 @@ def update_user(
     if body.full_name is not None:
         target.full_name = body.full_name or None
     if body.role is not None:
+        if body.role == "admin":
+            raise HTTPException(status_code=403, detail="Cannot grant admin role")
         target.role = body.role
     if body.company_id is not None:
         target.company_id = body.company_id

@@ -159,15 +159,15 @@ export default function Layout() {
         if (!res.data.industry) navigate("/setup", { replace: true });
       }).catch(() => {});
     }
-    // Redirect admin away from client-only pages
-    if (user?.role === "admin") {
+    // Redirect staff (admin/tech) away from client-only pages
+    if (user?.role === "admin" || user?.role === "tech") {
       const clientOnlyPaths = ["/dashboard", "/upload", "/reports", "/setup"];
       if (clientOnlyPaths.some((p) => location.pathname.startsWith(p))) {
         navigate("/admin", { replace: true });
       }
     }
-    // Redirect non-admin away from admin-only pages
-    if (user?.role !== "admin" && location.pathname.startsWith("/admin")) {
+    // Redirect non-staff away from admin-only pages
+    if (user?.role !== "admin" && user?.role !== "tech" && location.pathname.startsWith("/admin")) {
       navigate("/dashboard", { replace: true });
     }
   }, [user, location.pathname, navigate]);
@@ -177,24 +177,25 @@ export default function Layout() {
     window.location.href = "/login";
   };
 
-  const nav = user?.role === "admin" ? ADMIN_NAV : CLIENT_NAV;
+  const isStaff = user?.role === "admin" || user?.role === "tech";
+  const nav = isStaff ? ADMIN_NAV : CLIENT_NAV;
 
   return (
     <div className="min-h-screen flex flex-col bg-black">
-      {statusOpen && user?.role === "admin" && (
+      {statusOpen && isStaff && (
         <StatusModal onClose={() => setStatusOpen(false)} />
       )}
 
       {/* 2FA reminder banner — shown to client users who haven't enabled 2FA */}
-      {user && user.role !== "admin" && !user.totp_enabled && (
+      {user && !isStaff && !user.totp_enabled && (
         <TwoFABanner />
       )}
 
-      {/* Admin role badge */}
-      {user?.role === "admin" && (
+      {/* Staff role badge */}
+      {isStaff && (
         <div className="bg-brand-teal/10 border-b border-brand-teal/20 px-6 py-1.5 text-center">
           <span className="text-xs text-brand-teal font-medium tracking-wide">
-            Numbers10 Admin &nbsp;·&nbsp; You are viewing the operator console — client data is not visible here
+            Numbers10 {user?.role === "admin" ? "Admin" : "Tech"} &nbsp;·&nbsp; You are viewing the operator console
           </span>
         </div>
       )}
@@ -202,7 +203,7 @@ export default function Layout() {
       {/* Top nav */}
       <header className="border-b border-surface-border px-6 h-14 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-8">
-          <span onDoubleClick={() => user?.role === "admin" && setStatusOpen(true)} className="cursor-default select-none">
+          <span onDoubleClick={() => isStaff && setStatusOpen(true)} className="cursor-default select-none">
             <GhostLogo size={30} showText textSize="text-lg" />
           </span>
           <nav className="flex items-center gap-1">

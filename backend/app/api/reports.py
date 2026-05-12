@@ -10,7 +10,7 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, require_admin
+from app.api.deps import get_current_user, require_admin, require_staff
 from app.core.database import get_db
 from app.models.report import Report
 from app.models.user import User
@@ -140,10 +140,10 @@ def revenue_trends(
 @router.post("/{report_id}/deliver", status_code=status.HTTP_202_ACCEPTED)
 def resend_report(
     report_id: uuid.UUID,
-    _: User = Depends(require_admin),
+    _: User = Depends(require_staff),
     db: Session = Depends(get_db),
 ):
-    """Admin: re-trigger delivery for a report (useful after fixing email/WhatsApp config)."""
+    """Staff: re-trigger delivery for a report (useful after fixing email/WhatsApp config)."""
     report = db.get(Report, report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
@@ -238,10 +238,10 @@ def delete_report(
 def update_commentary(
     report_id: uuid.UUID,
     body: CustomCommentaryBody,
-    _: User = Depends(require_admin),
+    _: User = Depends(require_staff),
     db: Session = Depends(get_db),
 ):
-    """Admin: set/update the custom commentary section for a Premium report."""
+    """Staff: set/update the custom commentary section for a Premium report."""
     report = db.get(Report, report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")

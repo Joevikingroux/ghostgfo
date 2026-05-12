@@ -234,7 +234,7 @@ def heartbeat(
 # Company-scoped endpoints (JWT-authenticated — any logged-in user)
 # ---------------------------------------------------------------------------
 
-from app.api.deps import get_current_user, require_admin  # noqa: E402
+from app.api.deps import get_current_user, require_admin, require_staff  # noqa: E402
 from app.models.user import User  # noqa: E402
 
 
@@ -373,7 +373,7 @@ def _agent_detail(a: EvolutionAgent) -> AgentDetail:
 @router.get("/agents", response_model=list[AgentDetail])
 def list_agents(
     db: Session = Depends(get_db),
-    _: object = Depends(require_admin),
+    _: object = Depends(require_staff),
 ) -> list[AgentDetail]:
     agents = db.execute(select(EvolutionAgent)).scalars().all()
     return [_agent_detail(a) for a in agents]
@@ -383,7 +383,7 @@ def list_agents(
 def create_agent(
     body: CreateAgentRequest,
     db: Session = Depends(get_db),
-    _: object = Depends(require_admin),
+    _: object = Depends(require_staff),
 ) -> AgentDetail:
     """Provision a new agent for an Evolution client (generates a fresh API key)."""
     import uuid
@@ -407,7 +407,7 @@ def update_agent(
     agent_id: str,
     body: CreateAgentRequest,
     db: Session = Depends(get_db),
-    _: object = Depends(require_admin),
+    _: object = Depends(require_staff),
 ) -> AgentDetail:
     """Update SQL connection details for an existing agent."""
     import uuid
@@ -444,7 +444,7 @@ class SystemStatus(BaseModel):
 @router.get("/system-status", response_model=SystemStatus)
 def system_status(
     db: Session = Depends(get_db),
-    _: object = Depends(require_admin),
+    _: object = Depends(require_staff),
 ) -> SystemStatus:
     """System connectivity and configuration status for admin dashboard."""
     import sqlalchemy as _sa
@@ -482,7 +482,7 @@ def system_status(
 def reactivate_agent(
     agent_id: str,
     db: Session = Depends(get_db),
-    _: object = Depends(require_admin),
+    _: object = Depends(require_staff),
 ) -> AgentDetail:
     """Re-activate a previously deactivated agent."""
     import uuid
@@ -500,7 +500,7 @@ def force_sync_agent(
     agent_id: str,
     body: ForceSyncRequest,
     db: Session = Depends(get_db),
-    _: object = Depends(require_admin),
+    _: object = Depends(require_staff),
 ) -> dict:
     """Queue an on-demand sync for a specific period.
 
@@ -521,19 +521,33 @@ def force_sync_agent(
     return {"ok": True, "queued_month": body.month, "queued_year": body.year}
 
 
-@router.delete("/agents/{agent_id}")
+@router.post("/agents/{agent_id}/deactivate", response_model=AgentDetail)
 def deactivate_agent(
     agent_id: str,
     db: Session = Depends(get_db),
-    _: object = Depends(require_admin),
-) -> None:
-    """Deactivate (soft delete) an agent."""
+    _: object = Depends(require_staff),
+) -> AgentDetail:
+    """Soft-deactivate an agent — stops it from syncing but preserves the record."""
     import uuid
     agent = db.get(EvolutionAgent, uuid.UUID(agent_id))
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
-    
     agent.active = False
     db.commit()
-    # Return None for 204 No Content (no response body)
-    return None
+    db.refresh(agent)
+    return _agent_detail(agent)
+
+
+@router.delete("/agents/{agent_id}", status_code=204)
+def delete_agent(
+    agent_id: str,
+    db: Session = Depends(get_db),
+    _: object = Depends(require_staff),
+) -> None:
+    """Permanently delete an agent and its credentials."""
+    import uuid
+    agent = db.get(EvolutionAgent, uuid.UUID(agent_id))
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    db.delete(agent)
+    db.commit()
