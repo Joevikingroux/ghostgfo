@@ -834,7 +834,7 @@ function CopyField({ label, value, secret }: { label: string; value: string; sec
   );
 }
 
-const BLANK_AGENT_FORM = { company_id: "", server_name: "", db_name: "", db_username: "", db_password: "" };
+const BLANK_AGENT_FORM = { company_id: "", server_name: "", db_name: "" };
 
 function AgentsTab({
   companies, agents, loading, onReload,
@@ -933,28 +933,8 @@ function AgentsTab({
                 className="input-base w-full"
               />
             </div>
-            <div>{/* spacer */}</div>
-            <div>
-              <label className="block text-xs text-zinc-400 mb-1">SQL Username</label>
-              <input
-                type="text"
-                placeholder="ghostcfo_reader"
-                value={form.db_username}
-                onChange={setF("db_username")}
-                className="input-base w-full"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-zinc-400 mb-1">SQL Password</label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={form.db_password}
-                onChange={setF("db_password")}
-                className="input-base w-full"
-              />
-            </div>
           </div>
+          <p className="text-xs text-zinc-500">SQL username and password are stored only on the agent's local Windows server — not on this portal.</p>
           {createError && <p className="text-red-400 text-xs">{createError}</p>}
           <button type="submit" disabled={creating} className="btn-primary">
             {creating ? "Creating…" : "Create Agent"}
@@ -977,7 +957,6 @@ function AgentsTab({
                   <p className="font-medium">{a.company_name}</p>
                   <p className="text-xs text-zinc-500 mt-0.5">
                     {a.server_name ?? "—"} &nbsp;/&nbsp; {a.db_name ?? "—"}
-                    {a.db_username && <span> &nbsp;·&nbsp; user: {a.db_username}</span>}
                   </p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
@@ -1022,7 +1001,6 @@ function AgentsTab({
               {/* Credentials */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <CopyField label="API Key" value={a.api_key} secret />
-                <CopyField label="AES Encryption Key" value={a.encryption_key} secret />
               </div>
 
               {/* Inline edit for SQL connection details */}
@@ -1041,8 +1019,6 @@ function AgentEditForm({ agent, onSaved }: { agent: EvolutionAgent; onSaved: () 
   const [form, setForm] = useState({
     server_name: agent.server_name ?? "",
     db_name: agent.db_name ?? "",
-    db_username: agent.db_username ?? "",
-    db_password: agent.db_password ?? "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -1067,7 +1043,7 @@ function AgentEditForm({ agent, onSaved }: { agent: EvolutionAgent; onSaved: () 
 
   return (
     <form onSubmit={handleSave} className="border-t border-surface-border pt-3 space-y-3">
-      <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">Update SQL Connection</p>
+      <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">Update Connection Info</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs text-zinc-400 mb-1">SQL Server</label>
@@ -1077,15 +1053,8 @@ function AgentEditForm({ agent, onSaved }: { agent: EvolutionAgent; onSaved: () 
           <label className="block text-xs text-zinc-400 mb-1">Database Name</label>
           <input value={form.db_name} onChange={setF("db_name")} className="input-base w-full" placeholder="PASTEL_EVOLUTION_DB" />
         </div>
-        <div>
-          <label className="block text-xs text-zinc-400 mb-1">SQL Username</label>
-          <input value={form.db_username} onChange={setF("db_username")} className="input-base w-full" placeholder="ghostcfo_reader" />
-        </div>
-        <div>
-          <label className="block text-xs text-zinc-400 mb-1">SQL Password</label>
-          <input type="password" value={form.db_password} onChange={setF("db_password")} className="input-base w-full" placeholder="••••••••" />
-        </div>
       </div>
+      <p className="text-xs text-zinc-500">SQL username and password are stored only on the agent's local config — not here.</p>
       {error && <p className="text-red-400 text-xs">{error}</p>}
       <button type="submit" disabled={saving} className="btn-primary">
         {saving ? "Saving…" : "Save Changes"}

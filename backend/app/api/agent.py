@@ -14,7 +14,7 @@ import secrets
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -32,6 +32,16 @@ router = APIRouter(prefix="/agent", tags=["agent"])
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _derive_agent_key(global_key: str, agent_id: str) -> bytes:
+    """Derive a per-agent 32-byte AES key using HKDF-SHA256."""
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+    key_bytes = global_key.encode()
+    if len(key_bytes) != 32:
+        key_bytes = key_bytes.ljust(32, b"\x00")[:32]
+    return HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=agent_id.encode()).derive(key_bytes)
+
 
 def _get_agent(api_key: str, db: Session) -> EvolutionAgent:
     agent = db.execute(
@@ -54,7 +64,7 @@ def _decrypt_envelope(payload_b64: str, key: str) -> dict:
 
     try:
         envelope = json.loads(base64.b64decode(payload_b64))
-        key_bytes = key.encode()
+        key_bytes = key.encode() if isinstance(key, str) else key
         if len(key_bytes) != 32:
             key_bytes = key_bytes.ljust(32, b"\x00")[:32]
 
@@ -78,8 +88,8 @@ def _decrypt_envelope(payload_b64: str, key: str) -> dict:
 # ---------------------------------------------------------------------------
 
 class ForceSyncRequest(BaseModel):
-    month: int
-    year: int
+    month: int = Field(..., ge=1, le=12)
+    year: int = Field(..., ge=2020, le=2035)
 
 
 class IngestRequest(BaseModel):
@@ -124,8 +134,8 @@ def ingest(
 
     log.info("Ingest request from company '%s' (agent %s)", company.name, agent.id)
 
-    encryption_key = settings.agent_encryption_key
-    data = _decrypt_envelope(body.payload, encryption_key)
+    derived_key = _derive_agent_key(settings.agent_encryption_key, str(agent.id))
+    data = _decrypt_envelope(body.payload, derived_key)
 
     period_month: int = data.get("period_month", 0)
     period_year: int = data.get("period_year", 0)
@@ -334,8 +344,6 @@ class CreateAgentRequest(BaseModel):
     company_id: str
     server_name: str | None = None
     db_name: str | None = None
-    db_username: str | None = None
-    db_password: str | None = None
 
 
 class AgentDetail(BaseModel):
@@ -343,11 +351,8 @@ class AgentDetail(BaseModel):
     company_id: str
     company_name: str
     api_key: str
-    encryption_key: str
     server_name: str | None
     db_name: str | None
-    db_username: str | None
-    db_password: str | None
     last_sync_at: datetime | None
     last_sync_status: str | None
     active: bool
@@ -359,11 +364,8 @@ def _agent_detail(a: EvolutionAgent) -> AgentDetail:
         company_id=str(a.company_id),
         company_name=a.company.name,
         api_key=a.api_key,
-        encryption_key=settings.agent_encryption_key,
         server_name=a.server_name,
         db_name=a.db_name,
-        db_username=a.db_username,
-        db_password=a.db_password,
         last_sync_at=a.last_sync_at,
         last_sync_status=a.last_sync_status,
         active=a.active,
@@ -393,8 +395,6 @@ def create_agent(
         api_key=api_key,
         server_name=body.server_name,
         db_name=body.db_name,
-        db_username=body.db_username,
-        db_password=body.db_password,
     )
     db.add(agent)
     db.commit()
@@ -418,10 +418,6 @@ def update_agent(
         agent.server_name = body.server_name
     if body.db_name is not None:
         agent.db_name = body.db_name
-    if body.db_username is not None:
-        agent.db_username = body.db_username
-    if body.db_password is not None:
-        agent.db_password = body.db_password
     db.commit()
     db.refresh(agent)
     return _agent_detail(agent)

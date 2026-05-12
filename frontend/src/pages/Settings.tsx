@@ -203,6 +203,9 @@ function TwoFASection({ user, onUpdated }: { user: User | null; onUpdated: () =>
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [disabling, setDisabling] = useState(false);
+  const [disableOpen, setDisableOpen] = useState(false);
+  const [disablePassword, setDisablePassword] = useState("");
+  const [disableError, setDisableError] = useState("");
 
   const startSetup = async () => {
     setLoading(true);
@@ -237,12 +240,17 @@ function TwoFASection({ user, onUpdated }: { user: User | null; onUpdated: () =>
     }
   };
 
-  const handleDisable = async () => {
-    if (!confirm("Are you sure you want to disable two-factor authentication?")) return;
+  const handleDisable = async (e: React.FormEvent) => {
+    e.preventDefault();
     setDisabling(true);
+    setDisableError("");
     try {
-      await disableOwn2FA();
+      await disableOwn2FA(disablePassword);
+      setDisableOpen(false);
+      setDisablePassword("");
       onUpdated();
+    } catch {
+      setDisableError("Incorrect password.");
     } finally {
       setDisabling(false);
     }
@@ -322,9 +330,37 @@ function TwoFASection({ user, onUpdated }: { user: User | null; onUpdated: () =>
           <p className="text-zinc-400 text-sm">
             Your account is protected with two-factor authentication.
           </p>
-          <button onClick={handleDisable} disabled={disabling} className="btn-secondary text-sm">
-            {disabling ? "Disabling…" : "Disable 2FA"}
-          </button>
+          {!disableOpen ? (
+            <button onClick={() => setDisableOpen(true)} className="btn-secondary text-sm">
+              Disable 2FA
+            </button>
+          ) : (
+            <form onSubmit={handleDisable} className="space-y-2">
+              <p className="text-xs text-zinc-500">Enter your current password to confirm.</p>
+              <input
+                type="password"
+                value={disablePassword}
+                onChange={(e) => setDisablePassword(e.target.value)}
+                className="input-base w-full"
+                placeholder="Current password"
+                required
+                autoFocus
+              />
+              {disableError && <p className="text-red-400 text-xs">{disableError}</p>}
+              <div className="flex items-center gap-3">
+                <button type="submit" disabled={disabling} className="btn-secondary text-sm">
+                  {disabling ? "Disabling…" : "Confirm disable"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setDisableOpen(false); setDisablePassword(""); setDisableError(""); }}
+                  className="text-xs text-zinc-500 hover:text-white"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       )}
     </div>

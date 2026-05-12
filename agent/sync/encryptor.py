@@ -19,6 +19,8 @@ import json
 import os
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 
 def _ensure_bytes(key: str | bytes) -> bytes:
@@ -31,6 +33,16 @@ def _ensure_bytes(key: str | bytes) -> bytes:
     if len(key) != 32:
         key = key.ljust(32, b"\x00")[:32]
     return key
+
+
+def derive_agent_key(global_key: str | bytes, agent_id: str) -> bytes:
+    """Derive a per-agent 32-byte AES key from the global key using HKDF-SHA256.
+
+    The agent_id (UUID string) acts as the HKDF info parameter so each agent
+    gets a unique key even if the global key is ever compromised on one server.
+    """
+    key_bytes = _ensure_bytes(global_key)
+    return HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=agent_id.encode()).derive(key_bytes)
 
 
 def encrypt_payload(data: dict, key: str | bytes) -> str:

@@ -26,6 +26,7 @@ from app.core.security import (
 from app.models.user import User
 from app.schemas.auth import (
     ChangePasswordRequest,
+    Disable2FARequest,
     LoginRequest,
     ResetPasswordConfirm,
     ResetPasswordRequest,
@@ -48,7 +49,7 @@ def _set_auth_cookie(response: Response, token: str) -> None:
         key=_COOKIE_NAME,
         value=token,
         httponly=True,
-        samesite="lax",
+        samesite="strict",
         secure=True,
         max_age=_COOKIE_MAX_AGE,
     )
@@ -146,13 +147,20 @@ def confirm_2fa(body: TwoFAConfirmRequest, user: User = Depends(get_current_user
     return {"message": "2FA enabled"}
 
 
-@router.delete("/2fa")
-def disable_own_2fa(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Allow the currently logged-in user to disable their own 2FA."""
+@router.post("/2fa/disable")
+def disable_own_2fa(
+    body: Disable2FARequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Allow the currently logged-in user to disable their own 2FA. Requires current password."""
+    if not verify_password(body.current_password, user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
     user.totp_secret = None
     user.totp_enabled = False
     user.totp_enrolled_at = None
     db.commit()
+    log.info("2fa.disabled", user_id=str(user.id))
     return {"message": "2FA disabled"}
 
 
@@ -185,7 +193,7 @@ def reset_password_request(body: ResetPasswordRequest, db: Session = Depends(get
     if user:
         token = generate_reset_token()
         user.password_reset_token = token
-        user.password_reset_expires = datetime.now(timezone.utc) + timedelta(hours=24)
+        user.password_reset_expires = datetime.now(timezone.utc) + timedelta(hours=2)
         db.commit()
         reset_url = f"{settings.base_url}/set-password?token={token}"
         send_password_reset_email(
@@ -215,7 +223,6 @@ def reset_password_confirm(body: ResetPasswordConfirm, db: Session = Depends(get
     user.must_change_password = False
     user.password_reset_token = None
     user.password_reset_expires = None
-    user.active = True
     db.commit()
     log.info("password_reset.confirmed", user_id=str(user.id))
     return {"message": "Password set — you can now log in."}

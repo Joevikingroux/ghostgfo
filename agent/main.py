@@ -18,7 +18,7 @@ from pathlib import Path
 import click
 
 from connector import evolution_db
-from sync.encryptor import encrypt_payload
+from sync.encryptor import derive_agent_key, encrypt_payload
 from sync.extractor import extract
 from sync.uploader import upload_snapshot
 
@@ -82,7 +82,9 @@ def _run_sync(
     )
 
     log.info("Encrypting payload…")
-    payload_b64 = encrypt_payload(data, encryption_key)
+    agent_id = cfg.get("agent_id", "")
+    key = derive_agent_key(encryption_key, agent_id) if agent_id else encryption_key
+    payload_b64 = encrypt_payload(data, key)
 
     log.info("Uploading to %s …", base_url)
     result = upload_snapshot(payload_b64, api_key, base_url)
@@ -190,6 +192,25 @@ def install(api_key: str, server: str, db: str, username: str, password: str,
     }
     _save_config(cfg)
     log.info("Config saved to %s", CONFIG_PATH)
+
+    # Fetch and store the agent_id so HKDF derivation works correctly
+    import httpx
+    try:
+        with httpx.Client(timeout=10, verify=True) as hc:
+            resp = hc.get(
+                base_url.rstrip("/") + "/api/agent/status",
+                headers={"X-Agent-Key": api_key},
+            )
+        if resp.status_code == 200:
+            aid = resp.json().get("agent_id", "")
+            if aid:
+                cfg["agent_id"] = aid
+                _save_config(cfg)
+                log.info("Agent ID saved: %s", aid)
+        else:
+            log.warning("Could not retrieve agent_id from server (HTTP %d) — re-run install once the API key is provisioned.", resp.status_code)
+    except Exception as exc:
+        log.warning("Could not contact server to retrieve agent_id: %s — re-run install once connectivity is confirmed.", exc)
 
     # Test the SQL connection before installing the service
     log.info("Testing SQL Server connection…")

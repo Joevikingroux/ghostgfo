@@ -60,6 +60,10 @@ class ResetPasswordConfirm(BaseModel):
         return v
 
 
+class Disable2FARequest(BaseModel):
+    current_password: str
+
+
 class UserMe(BaseModel):
     id: str
     email: str

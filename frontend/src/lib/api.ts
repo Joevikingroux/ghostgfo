@@ -31,7 +31,8 @@ export const setup2FA = () =>
 export const confirm2FA = (secret: string, code: string) =>
   client.post("/auth/2fa/confirm", { secret, code });
 
-export const disableOwn2FA = () => client.delete("/auth/2fa");
+export const disableOwn2FA = (current_password: string) =>
+  client.post("/auth/2fa/disable", { current_password });
 
 export const changePassword = (current_password: string, new_password: string) =>
   client.post("/auth/change-password", { current_password, new_password });

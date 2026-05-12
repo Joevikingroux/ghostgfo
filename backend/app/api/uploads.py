@@ -26,7 +26,6 @@ _ALLOWED_TYPES = {
     "text/plain",
     "application/vnd.ms-excel",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "application/octet-stream",  # some browsers send this for CSV
 }
 _ALLOWED_EXTENSIONS = {".csv", ".xls", ".xlsx", ".txt"}
 _MAX_FILE_BYTES = 20 * 1024 * 1024  # 20 MB per file
@@ -115,7 +114,7 @@ def create_upload(
     from sqlalchemy import select
     from app.models.company import Company
 
-    if user.role not in {"bookkeeper", "owner", "admin"}:
+    if user.role not in {"bookkeeper", "owner", "admin", "tech"}:
         raise HTTPException(status_code=403, detail="Upload permission required")
     if not user.company_id:
         raise HTTPException(status_code=400, detail="User not associated with a company")
