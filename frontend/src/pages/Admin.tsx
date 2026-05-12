@@ -836,6 +836,39 @@ function CopyField({ label, value, secret }: { label: string; value: string; sec
 
 const BLANK_AGENT_FORM = { company_id: "", server_name: "", db_name: "" };
 
+function ServerAesKey() {
+  const [key, setKey] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const reveal = async () => {
+    setLoading(true);
+    try {
+      const r = await axios.get("/api/agent/server-config", { withCredentials: true });
+      setKey(r.data.agent_encryption_key);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="card p-5 space-y-3">
+      <h2 className="font-heading text-sm font-bold text-brand-teal uppercase tracking-wider">
+        Server AES Encryption Key
+      </h2>
+      <p className="text-xs text-zinc-500">
+        Required when installing the Ghost CFO Agent on a client's Windows server. Same key for all agents.
+      </p>
+      {key ? (
+        <CopyField label="AGENT_ENCRYPTION_KEY" value={key} secret />
+      ) : (
+        <button onClick={reveal} disabled={loading} className="btn-secondary text-sm">
+          {loading ? "Loading…" : "Reveal key"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function AgentsTab({
   companies, agents, loading, onReload,
 }: {
@@ -892,6 +925,8 @@ function AgentsTab({
 
   return (
     <div className="space-y-6">
+      <ServerAesKey />
+
       {/* Provision form */}
       <div className="card p-5">
         <h2 className="font-heading text-sm font-bold text-brand-teal uppercase tracking-wider mb-4">

@@ -437,6 +437,14 @@ class SystemStatus(BaseModel):
     agent_key: ServiceCheck
 
 
+@router.get("/server-config")
+def server_config(
+    _: object = Depends(require_admin),
+) -> dict:
+    """Return the global AES encryption key for agent installation. Admin only."""
+    return {"agent_encryption_key": settings.agent_encryption_key}
+
+
 @router.get("/system-status", response_model=SystemStatus)
 def system_status(
     db: Session = Depends(get_db),
