@@ -538,7 +538,7 @@ def deactivate_agent(
     return _agent_detail(agent)
 
 
-@router.delete("/agents/{agent_id}", status_code=204)
+@router.delete("/agents/{agent_id}", status_code=204, response_model=None)
 def delete_agent(
     agent_id: str,
     db: Session = Depends(get_db),
