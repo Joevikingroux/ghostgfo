@@ -469,6 +469,12 @@ function Features() {
 
 // ── Pricing ───────────────────────────────────────────────────────────────
 
+const XIcon = (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#52525b" strokeWidth="2.5" strokeLinecap="round">
+    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+  </svg>
+);
+
 function Pricing() {
   const plans = [
     {
@@ -483,8 +489,12 @@ function Pricing() {
         "Health score + flags",
         "Debtor age analysis",
         "12-month report history",
-        "Pastel Partner or Evolution",
       ],
+      compatibility: {
+        partner: true,
+        evolution: true,
+        payroll: false,
+      },
       popular: false,
     },
     {
@@ -500,6 +510,11 @@ function Pricing() {
         "Leave liability tracking",
         "Afrikaans language option",
       ],
+      compatibility: {
+        partner: true,
+        evolution: true,
+        payroll: true,
+      },
       popular: true,
     },
     {
@@ -516,8 +531,19 @@ function Pricing() {
         "Priority support from Numbers10",
         "Dedicated account manager",
       ],
+      compatibility: {
+        partner: true,
+        evolution: true,
+        payroll: true,
+      },
       popular: false,
     },
+  ];
+
+  const compat = [
+    { key: "partner" as const, label: "Pastel Partner", color: "#2DD4BF" },
+    { key: "evolution" as const, label: "Pastel Evolution", color: "#06B6D4" },
+    { key: "payroll" as const, label: "Pastel Payroll", color: "#818CF8" },
   ];
 
   return (
@@ -563,7 +589,7 @@ function Pricing() {
               </div>
             </div>
 
-            <ul className="space-y-3 flex-1 mb-7">
+            <ul className="space-y-3 mb-6">
               {p.features.map((f) => (
                 <li key={f} className="flex items-start gap-2.5 text-sm text-zinc-300">
                   <span className="mt-0.5 shrink-0">{Icon.check}</span>
@@ -572,9 +598,31 @@ function Pricing() {
               ))}
             </ul>
 
+            {/* Sage compatibility */}
+            <div className="border-t border-white/6 pt-5 mb-7">
+              <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-3 font-semibold">Works with</p>
+              <ul className="space-y-2">
+                {compat.map((c) => {
+                  const supported = p.compatibility[c.key];
+                  return (
+                    <li key={c.key} className="flex items-center gap-2.5">
+                      <span className="shrink-0">
+                        {supported
+                          ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c.color} strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                          : XIcon}
+                      </span>
+                      <span className={`text-xs ${supported ? "text-zinc-300" : "text-zinc-600"}`}>
+                        {c.label}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+
             <Link
               to={`/signup?plan=${p.id}`}
-              className="block text-center py-3.5 rounded-xl font-bold text-sm transition-all hover:scale-105"
+              className="block text-center py-3.5 rounded-xl font-bold text-sm transition-all hover:scale-105 mt-auto"
               style={
                 p.popular
                   ? { background: "linear-gradient(135deg,#2DD4BF,#06B6D4)", color: "#000" }
@@ -597,10 +645,40 @@ function Pricing() {
 // ── Pastel compatibility ──────────────────────────────────────────────────
 
 function PastelBadges() {
+  const CheckCell = ({ color }: { color: string }) => (
+    <div className="flex justify-center">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+    </div>
+  );
+  const DashCell = () => (
+    <div className="flex justify-center">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3f3f46" strokeWidth="2.5" strokeLinecap="round">
+        <line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+    </div>
+  );
+
   const products = [
-    { name: "Sage Pastel Evolution", tag: "SQL Server — automatic sync", colour: "#2DD4BF" },
-    { name: "Sage Pastel Partner", tag: "CSV/Excel upload — 5 minutes", colour: "#06B6D4" },
-    { name: "Sage Pastel Payroll", tag: "Payroll exports — full cost view", colour: "#818CF8" },
+    {
+      name: "Sage Pastel Partner",
+      desc: "CSV/Excel export upload — takes 5 minutes",
+      color: "#2DD4BF",
+      starter: true, professional: true, premium: true,
+    },
+    {
+      name: "Sage Pastel Evolution",
+      desc: "Direct SQL — automatic monthly sync via agent",
+      color: "#06B6D4",
+      starter: true, professional: true, premium: true,
+    },
+    {
+      name: "Sage Pastel Payroll",
+      desc: "Payroll exports — full staff cost breakdown",
+      color: "#818CF8",
+      starter: false, professional: true, premium: true,
+    },
   ];
 
   return (
@@ -617,22 +695,56 @@ function PastelBadges() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-5">
-          {products.map((p) => (
+        {/* Compatibility matrix */}
+        <div className="rounded-2xl border border-white/8 bg-[#080808] overflow-hidden">
+          {/* Header row */}
+          <div className="grid grid-cols-4 border-b border-white/8">
+            <div className="p-5 col-span-1" />
+            {["Starter", "Professional", "Premium"].map((plan, i) => (
+              <div key={plan} className={`p-5 text-center border-l border-white/8 ${i === 1 ? "bg-[#0a1a19]" : ""}`}>
+                <div className="font-heading font-bold text-white text-sm">{plan}</div>
+                <div className="text-zinc-500 text-xs mt-0.5">{["R500", "R900", "R1,500"][i]}/mo</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Product rows */}
+          {products.map((p, ri) => (
             <div
               key={p.name}
-              className="rounded-2xl border border-white/8 bg-[#080808] p-6 text-center hover:border-white/15 transition-colors"
+              className={`grid grid-cols-4 ${ri < products.length - 1 ? "border-b border-white/5" : ""}`}
             >
-              <div
-                className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center font-heading font-bold text-xl"
-                style={{ background: `${p.colour}15`, color: p.colour, border: `1px solid ${p.colour}25` }}
-              >
-                P
+              <div className="p-5 flex items-start gap-3">
+                <div
+                  className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center text-xs font-bold font-heading mt-0.5"
+                  style={{ background: `${p.color}18`, color: p.color, border: `1px solid ${p.color}25` }}
+                >
+                  P
+                </div>
+                <div>
+                  <div className="text-white text-sm font-semibold">{p.name}</div>
+                  <div className="text-zinc-500 text-xs mt-0.5 leading-snug">{p.desc}</div>
+                </div>
               </div>
-              <h3 className="font-heading font-semibold text-white text-base mb-1">{p.name}</h3>
-              <p className="text-zinc-500 text-xs">{p.tag}</p>
+              <div className="flex items-center justify-center border-l border-white/8">
+                {p.starter ? <CheckCell color={p.color} /> : <DashCell />}
+              </div>
+              <div className="flex items-center justify-center border-l border-white/8 bg-[#0a1a19]">
+                {p.professional ? <CheckCell color={p.color} /> : <DashCell />}
+              </div>
+              <div className="flex items-center justify-center border-l border-white/8">
+                {p.premium ? <CheckCell color={p.color} /> : <DashCell />}
+              </div>
             </div>
           ))}
+
+          {/* Footer note */}
+          <div className="border-t border-white/5 px-5 py-3 bg-[#050505]">
+            <p className="text-zinc-600 text-xs">
+              Payroll analysis requires Sage Pastel Payroll exports — available on Professional and Premium plans.
+              Starter clients get full accounting analysis without the payroll breakdown.
+            </p>
+          </div>
         </div>
       </div>
     </section>
