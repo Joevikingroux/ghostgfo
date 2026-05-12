@@ -2,7 +2,7 @@ export interface User {
   id: string;
   email: string;
   full_name: string | null;
-  role: "owner" | "bookkeeper" | "viewer" | "admin";
+  role: "owner" | "bookkeeper" | "viewer" | "admin" | "tech";
   company_id: string | null;
   must_change_password: boolean;
   totp_enabled: boolean;
