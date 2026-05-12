@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { getUsers, adminReset2FA, deactivateUser, activateUser, updateUser, reactivateAgent } from "@/lib/api";
+import { getUsers, adminReset2FA, deactivateUser, activateUser, updateUser, reactivateAgent, createUser, adminResetPassword } from "@/lib/api";
 import type { Company, EvolutionAgent, UserAdminView } from "@/lib/types";
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -492,6 +492,108 @@ const ROLE_COLOUR: Record<string, string> = {
   viewer: "text-zinc-500",
 };
 
+const BLANK_USER_FORM = { email: "", full_name: "", role: "owner", company_id: "" };
+
+function NewUserForm({ companies, onCreated }: { companies: Company[]; onCreated: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState(BLANK_USER_FORM);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm((p) => ({ ...p, [k]: e.target.value }));
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      await createUser({
+        email: form.email,
+        full_name: form.full_name || undefined,
+        role: form.role,
+        company_id: form.company_id || null,
+      });
+      setSuccess(`User created. A temporary password has been emailed to ${form.email}.`);
+      setForm(BLANK_USER_FORM);
+      onCreated();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setError(msg || "Failed to create user.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="card">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between p-5 text-left"
+      >
+        <span className="font-heading text-sm font-bold text-brand-teal uppercase tracking-wider">
+          + Add New User
+        </span>
+        <span className="text-zinc-500 text-sm">{open ? "▲" : "▼"}</span>
+      </button>
+
+      {open && (
+        <form onSubmit={handleSubmit} className="px-5 pb-5 space-y-4 border-t border-surface-border pt-4">
+          <p className="text-xs text-zinc-500">
+            A temporary password will be auto-generated and emailed to the user. They must change it on first login.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">Email *</label>
+              <input
+                required
+                type="email"
+                value={form.email}
+                onChange={set("email")}
+                className="input-base w-full"
+                placeholder="user@example.com"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">Full Name</label>
+              <input
+                value={form.full_name}
+                onChange={set("full_name")}
+                className="input-base w-full"
+                placeholder="Jane Smith"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">Role</label>
+              <select value={form.role} onChange={set("role")} className="input-base w-full">
+                <option value="owner">Owner</option>
+                <option value="bookkeeper">Bookkeeper</option>
+                <option value="viewer">Viewer</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">Company</label>
+              <select value={form.company_id} onChange={set("company_id")} className="input-base w-full">
+                <option value="">— No company —</option>
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {error && <p className="text-red-400 text-xs">{error}</p>}
+          {success && <p className="text-emerald-400 text-xs">{success}</p>}
+          <button type="submit" disabled={saving} className="btn-primary">
+            {saving ? "Creating…" : "Create User & Send Password"}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
 function UsersTab({ companies }: { companies: Company[] }) {
   const [users, setUsers] = useState<UserAdminView[]>([]);
   const [loading, setLoading] = useState(true);
@@ -537,6 +639,24 @@ function UsersTab({ companies }: { companies: Company[] }) {
     }
   };
 
+  const handleResetPassword = async (u: UserAdminView) => {
+    if (!confirm(`Reset password for ${u.email}? A temporary password will be emailed to them.`)) return;
+    setActionInProgress(u.id);
+    try {
+      const res = await adminResetPassword(u.id);
+      if (res.data.email_sent) {
+        alert(`Temporary password emailed to ${u.email}.`);
+      } else {
+        alert(`Password reset. Email could not be sent — check server email config.`);
+      }
+      load();
+    } catch {
+      alert("Failed to reset password.");
+    } finally {
+      setActionInProgress(null);
+    }
+  };
+
   // Group users by company
   const grouped = users.reduce<Record<string, UserAdminView[]>>((acc, u) => {
     const key = u.company_name ?? "__admin__";
@@ -554,6 +674,7 @@ function UsersTab({ companies }: { companies: Company[] }) {
 
   return (
     <div className="space-y-4">
+      <NewUserForm companies={companies} onCreated={load} />
       {groupKeys.map((group) => (
         <div key={group} className="card overflow-hidden">
           <div className="px-5 py-3 border-b border-surface-border bg-white/2">
@@ -615,6 +736,15 @@ function UsersTab({ companies }: { companies: Company[] }) {
                               className="text-xs text-zinc-500 hover:text-amber-400 transition-colors"
                             >
                               Reset 2FA
+                            </button>
+                          )}
+                          {u.role !== "admin" && (
+                            <button
+                              onClick={() => handleResetPassword(u)}
+                              disabled={busy}
+                              className="text-xs text-zinc-500 hover:text-sky-400 transition-colors"
+                            >
+                              Reset Password
                             </button>
                           )}
                           <button

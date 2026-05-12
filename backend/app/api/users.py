@@ -1,6 +1,8 @@
 """User management endpoints."""
 from __future__ import annotations
 
+import secrets
+import string
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -13,6 +15,11 @@ from app.core.security import hash_password
 from app.models.company import Company
 from app.models.user import User
 from app.schemas.user import UserAdminOut, UserCreate, UserOut, UserUpdate
+
+
+def _generate_temp_password() -> str:
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(14))
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -60,16 +67,27 @@ def create_user(
     ).scalar_one_or_none()
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+
+    temp_pw = body.password or _generate_temp_password()
     new_user = User(
         email=body.email,
-        password_hash=hash_password(body.password),
+        password_hash=hash_password(temp_pw),
         full_name=body.full_name,
         role=body.role,
         company_id=body.company_id,
+        must_change_password=True,
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+
+    from app.reports.email import send_temp_password_email
+    send_temp_password_email(
+        to_email=new_user.email,
+        to_name=new_user.full_name or new_user.email,
+        temp_password=temp_pw,
+    )
+
     return new_user
 
 
@@ -160,6 +178,36 @@ def activate_user(
     db.commit()
     db.refresh(target)
     return target
+
+
+@router.post("/{user_id}/reset-password")
+def admin_reset_password(
+    user_id: uuid.UUID,
+    caller: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Admin: generate a new temp password, email it, and force password change on next login."""
+    target = db.get(User, user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    if target.role == "admin":
+        raise HTTPException(status_code=403, detail="Cannot reset password for admin users")
+    if str(target.id) == str(caller.id):
+        raise HTTPException(status_code=400, detail="Use the change-password flow to update your own password")
+
+    temp_pw = _generate_temp_password()
+    target.password_hash = hash_password(temp_pw)
+    target.must_change_password = True
+    db.commit()
+
+    from app.reports.email import send_temp_password_email
+    sent = send_temp_password_email(
+        to_email=target.email,
+        to_name=target.full_name or target.email,
+        temp_password=temp_pw,
+    )
+
+    return {"ok": True, "email_sent": sent}
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -252,6 +252,46 @@ def send_weekly_pulse_email(
         return False
 
 
+def send_temp_password_email(
+    *,
+    to_email: str,
+    to_name: str,
+    temp_password: str,
+) -> bool:
+    """Send an admin-generated temporary password to a user."""
+    if not settings.resend_api_key:
+        log.warning("email.skipped", reason="RESEND_API_KEY not set")
+        return False
+    try:
+        import resend
+    except ImportError:
+        log.error("email.import_error", msg="resend package not installed")
+        return False
+
+    resend.api_key = settings.resend_api_key
+    login_url = f"{settings.base_url}/login"
+    html_body = (
+        f"<p>Hi {to_name},</p>"
+        f"<p>An administrator has reset your Ghost CFO password.</p>"
+        f"<p>Your temporary password is: <strong style='font-family:monospace;font-size:16px'>{temp_password}</strong></p>"
+        f"<p>You will be required to set a new password when you log in.</p>"
+        f"<p><a href='{login_url}'>Log in to Ghost CFO</a></p>"
+        f"<p style='color:#888;font-size:12px'>Ghost CFO — powered by Numbers10 Technology Solutions</p>"
+    )
+    try:
+        response = resend.Emails.send({
+            "from": f"{settings.from_name} <{settings.from_email}>",
+            "to": [to_email],
+            "subject": "Ghost CFO — your temporary password",
+            "html": html_body,
+        })
+        log.info("temp_password.sent", to=to_email, id=response.get("id"))
+        return True
+    except Exception as exc:
+        log.error("temp_password.failed", to=to_email, error=str(exc))
+        return False
+
+
 def send_welcome_email(
     *,
     to_email: str,

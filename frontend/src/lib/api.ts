@@ -52,6 +52,10 @@ export const getMe = () => client.get<User>("/auth/me");
 // ---- Admin users ----
 export const getUsers = () => client.get<UserAdminView[]>("/users");
 
+export const createUser = (data: {
+  email: string; full_name?: string; role: string; company_id?: string | null;
+}) => client.post<UserAdminView>("/users", data);
+
 export const updateUser = (user_id: string, data: {
   email?: string; full_name?: string; role?: string; company_id?: string | null; active?: boolean;
 }) => client.patch<UserAdminView>(`/users/${user_id}`, data);
@@ -61,6 +65,9 @@ export const deactivateUser = (user_id: string) =>
 
 export const activateUser = (user_id: string) =>
   client.patch(`/users/${user_id}/activate`);
+
+export const adminResetPassword = (user_id: string) =>
+  client.post<{ ok: boolean; email_sent: boolean }>(`/users/${user_id}/reset-password`);
 
 // ---- Companies ----
 export const getCompanies = () => client.get<Company[]>("/companies");

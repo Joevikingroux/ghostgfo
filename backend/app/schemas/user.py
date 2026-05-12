@@ -8,7 +8,7 @@ from pydantic import BaseModel, EmailStr, field_validator
 
 class UserCreate(BaseModel):
     email: EmailStr
-    password: str
+    password: str | None = None  # if None, a temp password is auto-generated and emailed
     full_name: str | None = None
     role: str = "viewer"
     company_id: uuid.UUID | None = None
