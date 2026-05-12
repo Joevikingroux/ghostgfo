@@ -36,6 +36,31 @@ def _parse_file(parser_cls, path: str | None):
     return parser_cls().parse(path)
 
 
+def _get_prior_metrics(
+    company_id: uuid.UUID,
+    period_month: int,
+    period_year: int,
+    db: Session,
+) -> dict | None:
+    """Return the metrics dict from the immediately preceding month's report, or None."""
+    from sqlalchemy import select
+
+    if period_month == 1:
+        prior_month, prior_year = 12, period_year - 1
+    else:
+        prior_month, prior_year = period_month - 1, period_year
+
+    prior = db.execute(
+        select(Report).where(
+            Report.company_id == company_id,
+            Report.period_month == prior_month,
+            Report.period_year == prior_year,
+        )
+    ).scalar_one_or_none()
+
+    return dict(prior.metrics) if prior and prior.metrics else None
+
+
 def run_for_upload(upload_id: uuid.UUID, db: Session) -> Report:
     """Full pipeline for one Upload row. Returns the persisted Report."""
     upload = db.get(Upload, upload_id)
@@ -92,6 +117,11 @@ def _execute(upload: Upload, db: Session) -> Report:
     if plan == "starter":
         language = "en"
 
+    # Prior month data enables payroll change % and headcount delta
+    prior = _get_prior_metrics(upload.company_id, upload.period_month, upload.period_year, db)
+    prior_payroll_gross = prior.get("payroll_gross_total") if prior else None
+    prior_headcount = int(prior["payroll_headcount"]) if prior and prior.get("payroll_headcount") is not None else None
+
     data = MetricsInput(
         period_month=upload.period_month,
         period_year=upload.period_year,
@@ -103,6 +133,8 @@ def _execute(upload: Upload, db: Session) -> Report:
         payroll_employee_cost_totals=emp_cost.totals if emp_cost else None,
         payroll_leave_totals=leave.totals if leave else None,
         payroll_journal_integrated=upload.payroll_journal_integrated,
+        previous_payroll_gross=prior_payroll_gross,
+        previous_headcount=prior_headcount,
         warnings=warnings,
     )
 
@@ -188,6 +220,11 @@ def run_for_agent_data(
     # Agent sends raw totals — run them through the metrics engine for health scoring
     from app.metrics.engine import MetricsEngine, MetricsInput
 
+    # Prior month data enables payroll change % and headcount delta
+    prior = _get_prior_metrics(company_id, period_month, period_year, db)
+    prior_payroll_gross = prior.get("payroll_gross_total") if prior else None
+    prior_headcount = int(prior["payroll_headcount"]) if prior and prior.get("payroll_headcount") is not None else None
+
     data = MetricsInput(
         period_month=period_month,
         period_year=period_year,
@@ -199,6 +236,8 @@ def run_for_agent_data(
         payroll_employee_cost_totals=metrics_data.get("payroll_employee_cost_totals"),
         payroll_leave_totals=metrics_data.get("payroll_leave_totals"),
         payroll_journal_integrated=metrics_data.get("payroll_journal_integrated", False),
+        previous_payroll_gross=prior_payroll_gross,
+        previous_headcount=prior_headcount,
         warnings=[],
     )
 
@@ -326,6 +365,10 @@ def apply_payroll_update(upload_id: uuid.UUID, db: Session) -> Report:
 
     existing = dict(report.metrics or {})
 
+    prior = _get_prior_metrics(upload.company_id, upload.period_month, upload.period_year, db)
+    prior_payroll_gross = prior.get("payroll_gross_total") if prior else None
+    prior_headcount = int(prior["payroll_headcount"]) if prior and prior.get("payroll_headcount") is not None else None
+
     pay = payroll_mod.compute(
         payroll.totals if payroll else None,
         emp_cost.totals if emp_cost else None,
@@ -335,7 +378,8 @@ def apply_payroll_update(upload_id: uuid.UUID, db: Session) -> Report:
         cash_balance=existing.get("cash_balance", 0),
         period_month=upload.period_month,
         period_year=upload.period_year,
-        previous_payroll_gross=None,
+        previous_payroll_gross=prior_payroll_gross,
+        previous_headcount=prior_headcount,
         journal_integrated=upload.payroll_journal_integrated,
     )
     existing.update(pay)
@@ -372,10 +416,15 @@ def _enrich_premium(
     db: Session,
 ) -> None:
     """Mutate metrics in-place with Premium-only data: YoY comparison and anomaly flags."""
-    from sqlalchemy import select
+    from sqlalchemy import and_, or_, select
 
-    # Year-on-year comparison: fetch same month from prior year
-    prior_year = db.execute(
+    def _pct(now: float, then: float) -> float | None:
+        if then == 0:
+            return None
+        return round((now - then) / abs(then) * 100, 1)
+
+    # Year-on-year comparison: fetch same month from prior two years
+    prior_y1 = db.execute(
         select(Report).where(
             Report.company_id == company_id,
             Report.period_month == period_month,
@@ -383,8 +432,16 @@ def _enrich_premium(
         )
     ).scalar_one_or_none()
 
-    if prior_year and prior_year.metrics:
-        pm = prior_year.metrics
+    prior_y2 = db.execute(
+        select(Report).where(
+            Report.company_id == company_id,
+            Report.period_month == period_month,
+            Report.period_year == period_year - 2,
+        )
+    ).scalar_one_or_none()
+
+    if prior_y1 and prior_y1.metrics:
+        pm = prior_y1.metrics
         rev_now = metrics.get("revenue_current_month", 0)
         rev_then = pm.get("revenue_current_month", 0)
         gp_now = metrics.get("gross_profit_current", 0)
@@ -392,35 +449,50 @@ def _enrich_premium(
         cost_now = metrics.get("total_costs_current", 0)
         cost_then = pm.get("total_costs_current", 0)
 
-        def _pct(now: float, then: float) -> float | None:
-            if then == 0:
-                return None
-            return round((now - then) / abs(then) * 100, 1)
-
         metrics["yoy_revenue_change_pct"] = _pct(rev_now, rev_then)
         metrics["yoy_gross_profit_change_pct"] = _pct(gp_now, gp_then)
         metrics["yoy_cost_change_pct"] = _pct(cost_now, cost_then)
         metrics["yoy_prior_year_revenue"] = rev_then
         metrics["yoy_prior_year_gross_profit"] = gp_then
         metrics["yoy_available"] = True
+
+        # Two-year comparison for richer trend narrative
+        if prior_y2 and prior_y2.metrics:
+            pm2 = prior_y2.metrics
+            metrics["yoy2_revenue_change_pct"] = _pct(rev_then, pm2.get("revenue_current_month", 0))
+            metrics["yoy2_prior_year_revenue"] = pm2.get("revenue_current_month", 0)
     else:
         metrics["yoy_available"] = False
 
-    # Quarterly trend: only on quarter-end months (March, June, September, December)
-    if period_month in (3, 6, 9, 12):
-        q_start = period_month - 2
-        q_reports = db.execute(
-            select(Report).where(
-                Report.company_id == company_id,
-                Report.period_year == period_year,
-                Report.period_month.in_([q_start, q_start + 1, period_month]),
-            )
-        ).scalars().all()
-        q_revenue = sum(
-            (r.metrics or {}).get("revenue_current_month", 0) for r in q_reports
+    # Rolling 3-month quarterly: works for every month, handles year boundary
+    q_filters = []
+    m, y = period_month, period_year
+    for _ in range(3):
+        q_filters.append(and_(Report.period_month == m, Report.period_year == y))
+        m -= 1
+        if m == 0:
+            m, y = 12, y - 1
+
+    q_reports = db.execute(
+        select(Report).where(
+            Report.company_id == company_id,
+            or_(*q_filters),
         )
-        metrics["quarterly_revenue"] = q_revenue
-        metrics["quarterly_period"] = f"Q{period_month // 3} {period_year}"
+    ).scalars().all()
+
+    q_revenue = sum((r.metrics or {}).get("revenue_current_month", 0) for r in q_reports)
+    q_gross_profit = sum((r.metrics or {}).get("gross_profit_current", 0) for r in q_reports)
+    q_costs = sum((r.metrics or {}).get("total_costs_current", 0) for r in q_reports)
+
+    if period_month in (3, 6, 9, 12):
+        q_label = f"Q{period_month // 3} {period_year}"
+    else:
+        q_label = f"Rolling 3M to {period_month:02d}/{period_year}"
+
+    metrics["quarterly_revenue"] = q_revenue
+    metrics["quarterly_gross_profit"] = q_gross_profit
+    metrics["quarterly_costs"] = q_costs
+    metrics["quarterly_period"] = q_label
 
     # Anomaly detection
     anomalies: list[str] = []

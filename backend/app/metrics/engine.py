@@ -30,6 +30,7 @@ class MetricsInput:
     payroll_leave_totals: dict[str, Any] | None = None
     payroll_journal_integrated: bool = False
     previous_payroll_gross: float | None = None
+    previous_headcount: int | None = None
 
     warnings: list[str] = field(default_factory=list)
 
@@ -56,6 +57,7 @@ class MetricsEngine:
             period_month=data.period_month,
             period_year=data.period_year,
             previous_payroll_gross=data.previous_payroll_gross,
+            previous_headcount=data.previous_headcount,
             journal_integrated=data.payroll_journal_integrated,
         )
 

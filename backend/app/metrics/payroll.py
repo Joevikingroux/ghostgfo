@@ -29,6 +29,7 @@ def compute(
     period_month: int,
     period_year: int,
     previous_payroll_gross: float | None = None,
+    previous_headcount: int | None = None,
     journal_integrated: bool = False,
 ) -> dict[str, Any]:
     summary = summary_totals or {}
@@ -78,7 +79,7 @@ def compute(
         "payroll_employer_sdl": round_money(sdl),
         "payroll_true_employer_cost": round_money(true_cost),
         "payroll_headcount": headcount,
-        "payroll_headcount_change": 0,  # populated when prior month is available
+        "payroll_headcount_change": (headcount - previous_headcount) if previous_headcount is not None else 0,
         "payroll_pct_of_revenue": round_pct(pct_of_rev),
         "payroll_pct_prev_month": round_pct(prev_pct),
         "payroll_change_pct": round_pct(change_pct),

@@ -92,7 +92,12 @@ export interface Metrics {
   yoy_gross_profit_change_pct?: number | null;
   yoy_cost_change_pct?: number | null;
   yoy_prior_year_revenue?: number;
+  yoy_prior_year_gross_profit?: number;
+  yoy2_revenue_change_pct?: number | null;
+  yoy2_prior_year_revenue?: number;
   quarterly_revenue?: number;
+  quarterly_gross_profit?: number;
+  quarterly_costs?: number;
   quarterly_period?: string;
   anomalies?: string[];
 }
