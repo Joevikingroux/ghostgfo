@@ -836,16 +836,16 @@ function CTAStrip() {
           Numbers10 handles everything.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <a
-            href="mailto:ghostcfo@numbers10.co.za"
+          <Link
+            to="/signup"
             className="group flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-black font-bold text-base transition-all hover:scale-105 hover:shadow-[0_0_40px_rgba(45,212,191,0.35)]"
             style={{ background: "linear-gradient(135deg,#2DD4BF,#06B6D4)" }}
           >
             Start your subscription
             <span className="group-hover:translate-x-1 transition-transform">{Icon.arrow}</span>
-          </a>
+          </Link>
           <a
-            href="mailto:info@numbers10.co.za"
+            href="mailto:ghostcfo@numbers10.co.za"
             className="flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-white font-semibold border border-white/10 hover:border-white/25 transition-all text-base"
           >
             Email us
