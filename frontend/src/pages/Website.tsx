@@ -136,13 +136,13 @@ function Navbar() {
           >
             Client Login
           </Link>
-          <a
-            href="mailto:ghostcfo@numbers10.co.za"
+          <button
+            onClick={() => document.querySelector("#cta")?.scrollIntoView({ behavior: "smooth" })}
             className="hidden md:inline-flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg text-black transition-all"
             style={{ background: "linear-gradient(135deg,#2DD4BF,#06B6D4)" }}
           >
             Get Started
-          </a>
+          </button>
           <button
             className="md:hidden text-zinc-400 hover:text-white transition-colors"
             onClick={() => setOpen(!open)}
@@ -173,13 +173,13 @@ function Navbar() {
             >
               Client Login
             </Link>
-            <a
-              href="mailto:ghostcfo@numbers10.co.za"
+            <button
+              onClick={() => { setOpen(false); document.querySelector("#cta")?.scrollIntoView({ behavior: "smooth" }); }}
               className="text-sm font-semibold px-4 py-2.5 rounded-lg text-black text-center"
               style={{ background: "linear-gradient(135deg,#2DD4BF,#06B6D4)" }}
             >
               Get Started
-            </a>
+            </button>
           </div>
         </div>
       )}
@@ -819,7 +819,7 @@ function About() {
 
 function CTAStrip() {
   return (
-    <section className="py-24 relative overflow-hidden">
+    <section id="cta" className="py-24 relative overflow-hidden">
       <div
         className="absolute inset-0"
         style={{
@@ -836,14 +836,14 @@ function CTAStrip() {
           Numbers10 handles everything.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Link
-            to="/signup"
+          <a
+            href="mailto:ghostcfo@numbers10.co.za"
             className="group flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-black font-bold text-base transition-all hover:scale-105 hover:shadow-[0_0_40px_rgba(45,212,191,0.35)]"
             style={{ background: "linear-gradient(135deg,#2DD4BF,#06B6D4)" }}
           >
             Start your subscription
             <span className="group-hover:translate-x-1 transition-transform">{Icon.arrow}</span>
-          </Link>
+          </a>
           <a
             href="mailto:info@numbers10.co.za"
             className="flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-white font-semibold border border-white/10 hover:border-white/25 transition-all text-base"

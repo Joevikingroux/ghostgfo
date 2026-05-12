@@ -1,0 +1,17 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2DD4BF"/>
+      <stop offset="100%" stop-color="#06B6D4"/>
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="30" fill="url(#grad)"/>
+  <ellipse cx="32" cy="24" rx="13" ry="13" fill="white"/>
+  <rect x="19" y="24" width="26" height="18" fill="white"/>
+  <circle cx="23.3" cy="42" r="4.3" fill="white"/>
+  <circle cx="32" cy="42" r="4.3" fill="white"/>
+  <circle cx="40.7" cy="42" r="4.3" fill="white"/>
+  <circle cx="27" cy="23" r="3" fill="#0D1117"/>
+  <circle cx="37" cy="23" r="3" fill="#0D1117"/>
+  <circle cx="32" cy="32" r="30" stroke="white" stroke-opacity="0.15" stroke-width="1.5"/>
+</svg>
