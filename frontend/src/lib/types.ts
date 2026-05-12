@@ -151,12 +151,16 @@ export interface EvolutionAgent {
   id: string;
   company_id: string;
   company_name: string;
-  api_key: string;
   server_name: string | null;
   db_name: string | null;
   last_sync_at: string | null;
   last_sync_status: string | null;
   active: boolean;
+}
+
+export interface AgentCreatedDetail extends EvolutionAgent {
+  api_key: string;
+  encryption_key: string;
 }
 
 export interface AdminClientCard {

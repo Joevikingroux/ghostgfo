@@ -350,7 +350,6 @@ class AgentDetail(BaseModel):
     id: str
     company_id: str
     company_name: str
-    api_key: str
     server_name: str | None
     db_name: str | None
     last_sync_at: datetime | None
@@ -358,12 +357,17 @@ class AgentDetail(BaseModel):
     active: bool
 
 
+class AgentCreatedDetail(AgentDetail):
+    """Returned only on agent creation — credentials are not shown again after this."""
+    api_key: str
+    encryption_key: str
+
+
 def _agent_detail(a: EvolutionAgent) -> AgentDetail:
     return AgentDetail(
         id=str(a.id),
         company_id=str(a.company_id),
         company_name=a.company.name,
-        api_key=a.api_key,
         server_name=a.server_name,
         db_name=a.db_name,
         last_sync_at=a.last_sync_at,
@@ -381,13 +385,13 @@ def list_agents(
     return [_agent_detail(a) for a in agents]
 
 
-@router.post("/agents", response_model=AgentDetail, status_code=201)
+@router.post("/agents", response_model=AgentCreatedDetail, status_code=201)
 def create_agent(
     body: CreateAgentRequest,
     db: Session = Depends(get_db),
     _: object = Depends(require_staff),
-) -> AgentDetail:
-    """Provision a new agent for an Evolution client (generates a fresh API key)."""
+) -> AgentCreatedDetail:
+    """Provision a new agent. Returns API key + AES key once — not retrievable again."""
     import uuid
     api_key = secrets.token_urlsafe(32)
     agent = EvolutionAgent(
@@ -399,7 +403,12 @@ def create_agent(
     db.add(agent)
     db.commit()
     db.refresh(agent)
-    return _agent_detail(agent)
+    detail = _agent_detail(agent)
+    return AgentCreatedDetail(
+        **detail.model_dump(),
+        api_key=api_key,
+        encryption_key=settings.agent_encryption_key,
+    )
 
 
 @router.patch("/agents/{agent_id}", response_model=AgentDetail)
@@ -435,14 +444,6 @@ class SystemStatus(BaseModel):
     resend: ServiceCheck
     openrouter: ServiceCheck
     agent_key: ServiceCheck
-
-
-@router.get("/server-config")
-def server_config(
-    _: object = Depends(require_admin),
-) -> dict:
-    """Return the global AES encryption key for agent installation. Admin only."""
-    return {"agent_encryption_key": settings.agent_encryption_key}
 
 
 @router.get("/system-status", response_model=SystemStatus)

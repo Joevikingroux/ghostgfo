@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { getUsers, adminReset2FA, deactivateUser, activateUser, updateUser, reactivateAgent, deactivateAgent, deleteAgent, createUser, adminResetPassword } from "@/lib/api";
-import type { Company, EvolutionAgent, UserAdminView } from "@/lib/types";
+import type { AgentCreatedDetail, Company, EvolutionAgent, UserAdminView } from "@/lib/types";
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -836,39 +836,6 @@ function CopyField({ label, value, secret }: { label: string; value: string; sec
 
 const BLANK_AGENT_FORM = { company_id: "", server_name: "", db_name: "" };
 
-function ServerAesKey() {
-  const [key, setKey] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const reveal = async () => {
-    setLoading(true);
-    try {
-      const r = await axios.get("/api/agent/server-config", { withCredentials: true });
-      setKey(r.data.agent_encryption_key);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="card p-5 space-y-3">
-      <h2 className="font-heading text-sm font-bold text-brand-teal uppercase tracking-wider">
-        Server AES Encryption Key
-      </h2>
-      <p className="text-xs text-zinc-500">
-        Required when installing the Ghost CFO Agent on a client's Windows server. Same key for all agents.
-      </p>
-      {key ? (
-        <CopyField label="AGENT_ENCRYPTION_KEY" value={key} secret />
-      ) : (
-        <button onClick={reveal} disabled={loading} className="btn-secondary text-sm">
-          {loading ? "Loading…" : "Reveal key"}
-        </button>
-      )}
-    </div>
-  );
-}
-
 function AgentsTab({
   companies, agents, loading, onReload,
 }: {
@@ -881,6 +848,7 @@ function AgentsTab({
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [newCredentials, setNewCredentials] = useState<AgentCreatedDetail | null>(null);
 
   const load = onReload;
 
@@ -893,7 +861,8 @@ function AgentsTab({
     setCreating(true);
     setCreateError("");
     try {
-      await axios.post("/api/agent/agents", form, { withCredentials: true });
+      const r = await axios.post("/api/agent/agents", form, { withCredentials: true });
+      setNewCredentials(r.data as AgentCreatedDetail);
       setForm(BLANK_AGENT_FORM);
       load();
     } catch (err: unknown) {
@@ -925,7 +894,30 @@ function AgentsTab({
 
   return (
     <div className="space-y-6">
-      <ServerAesKey />
+      {/* One-time credentials panel — shown only immediately after agent creation */}
+      {newCredentials && (
+        <div className="card p-5 space-y-4 border border-amber-500/40 bg-amber-500/5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="font-heading text-sm font-bold text-amber-400 uppercase tracking-wider">
+                Agent Credentials — Save These Now
+              </h2>
+              <p className="text-xs text-zinc-400 mt-1">
+                These will not be shown again. Copy both values before clicking Done.
+              </p>
+            </div>
+            <span className="text-xs text-zinc-500">{newCredentials.company_name}</span>
+          </div>
+          <CopyField label="API Key" value={newCredentials.api_key} secret />
+          <CopyField label="AES Encryption Key" value={newCredentials.encryption_key} secret />
+          <button
+            onClick={() => setNewCredentials(null)}
+            className="btn-primary text-sm"
+          >
+            Done — I've saved both keys
+          </button>
+        </div>
+      )}
 
       {/* Provision form */}
       <div className="card p-5">
@@ -1033,10 +1025,6 @@ function AgentsTab({
                 </div>
               </div>
 
-              {/* Credentials */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <CopyField label="API Key" value={a.api_key} secret />
-              </div>
 
               {/* Inline edit for SQL connection details */}
               {editingId === a.id && (
