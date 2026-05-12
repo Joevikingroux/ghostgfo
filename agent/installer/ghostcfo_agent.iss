@@ -159,11 +159,13 @@ Name: "{group}\Uninstall Ghost CFO Agent"; \
   Filename: "{uninstallexe}"
 
 ; ---------------------------------------------------------------------------
-; Run at login — add tray app to HKCU Run key
+; Run at login — add tray app to HKLM Run key (all users, survives UAC elevation)
+; HKCU can be written to the wrong hive when the installer runs elevated.
+; HKLM\Run launches in each user's session on login, which is what we need.
 ; ---------------------------------------------------------------------------
 
 [Registry]
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
+Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Run"; \
   ValueType: string; ValueName: "GhostCFOTray"; \
   ValueData: """{#InstallDir}\{#ExeName}"" tray"; \
   Flags: uninsdeletevalue
