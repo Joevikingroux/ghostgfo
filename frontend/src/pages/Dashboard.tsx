@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getReports, getReport, getRevenueTrends } from "@/lib/api";
+import { getMyAgentStatus, getReport, getReports, getRevenueTrends, requestCompanySync } from "@/lib/api";
 import { formatCurrency, formatPct, formatPeriod, healthColor } from "@/lib/format";
-import type { Report, ReportListItem } from "@/lib/types";
+import type { CompanyAgentStatus, Report, ReportListItem } from "@/lib/types";
 import MetricTile from "@/components/MetricTile";
 import StatusBadge from "@/components/StatusBadge";
 import TrendChart from "@/components/TrendChart";
@@ -19,13 +19,19 @@ export default function DashboardPage() {
   const [items, setItems] = useState<ReportListItem[]>([]);
   const [latest, setLatest] = useState<Report | null>(null);
   const [trends, setTrends] = useState<TrendPoint[]>([]);
+  const [agentStatus, setAgentStatus] = useState<CompanyAgentStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const refreshAgent = () => {
+    getMyAgentStatus().then((r) => setAgentStatus(r.data)).catch(() => {});
+  };
+
   useEffect(() => {
-    Promise.all([getReports(), getRevenueTrends()])
-      .then(async ([listRes, trendRes]) => {
+    Promise.all([getReports(), getRevenueTrends(), getMyAgentStatus()])
+      .then(async ([listRes, trendRes, agentRes]) => {
         setItems(listRes.data);
         setTrends(trendRes.data);
+        setAgentStatus(agentRes.data);
         if (listRes.data.length > 0) {
           const full = await getReport(listRes.data[0].id);
           setLatest(full.data);
@@ -42,13 +48,25 @@ export default function DashboardPage() {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4">
         <h2 className="font-heading text-2xl font-bold">Welcome to Ghost CFO</h2>
-        <p className="text-zinc-400 text-sm max-w-md text-center">
-          No reports yet. Upload your Pastel Partner exports to generate your first
-          financial report.
-        </p>
-        <Link to="/upload" className="btn-primary mt-2">
-          Upload your first files →
-        </Link>
+        {agentStatus?.has_agent ? (
+          <>
+            <p className="text-zinc-400 text-sm max-w-md text-center">
+              Your Evolution agent is installed. Your first report will be generated
+              automatically on the 1st of next month, or you can request a sync now.
+            </p>
+            <EvolutionAgentCard status={agentStatus} onSynced={refreshAgent} />
+          </>
+        ) : (
+          <>
+            <p className="text-zinc-400 text-sm max-w-md text-center">
+              No reports yet. Upload your Pastel Partner exports to generate your first
+              financial report.
+            </p>
+            <Link to="/upload" className="btn-primary mt-2">
+              Upload your first files →
+            </Link>
+          </>
+        )}
       </div>
     );
   }
@@ -57,6 +75,11 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
+      {/* Evolution agent status — only visible for Evolution companies */}
+      {agentStatus?.has_agent && (
+        <EvolutionAgentCard status={agentStatus} onSynced={refreshAgent} />
+      )}
+
       {/* Header row — title + health score ring */}
       <div className="flex items-start justify-between gap-6">
         <div className="flex-1">
@@ -260,6 +283,149 @@ export default function DashboardPage() {
 }
 
 // ── Sub-components ──────────────────────────────────────────────────────────
+
+function timeAgo(iso: string): string {
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
+function EvolutionAgentCard({
+  status,
+  onSynced,
+}: {
+  status: CompanyAgentStatus;
+  onSynced: () => void;
+}) {
+  const now = new Date();
+  const defaultMonth = now.getMonth() === 0 ? 12 : now.getMonth();
+  const defaultYear  = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+
+  const [open, setOpen]       = useState(false);
+  const [month, setMonth]     = useState(defaultMonth);
+  const [year, setYear]       = useState(defaultYear);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult]   = useState<"ok" | "error" | null>(null);
+
+  const handleSync = async () => {
+    setLoading(true);
+    setResult(null);
+    try {
+      await requestCompanySync(month, year);
+      setResult("ok");
+      setOpen(false);
+      onSynced();
+      setTimeout(() => setResult(null), 8000);
+    } catch {
+      setResult("error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const years  = [now.getFullYear() - 1, now.getFullYear()];
+  const hasPending = !!(status.pending_sync_month && status.pending_sync_year);
+
+  return (
+    <div className="rounded-xl border border-white/8 bg-zinc-900/60 p-4 space-y-3">
+      {/* Status row */}
+      <div className="flex items-center gap-3 flex-wrap">
+        {/* Connection */}
+        <div className="flex items-center gap-1.5">
+          <span className={`w-2 h-2 rounded-full shrink-0 ${status.connected ? "bg-emerald-400 animate-pulse" : "bg-red-500"}`} />
+          <span className={`text-xs font-medium ${status.connected ? "text-emerald-400" : "text-red-400"}`}>
+            {status.connected ? "Agent connected" : "Agent offline"}
+          </span>
+        </div>
+
+        <span className="text-zinc-700 text-xs hidden sm:block">·</span>
+
+        {/* SQL status */}
+        <div className="flex items-center gap-1.5">
+          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+            status.sql_ok === true  ? "bg-emerald-400" :
+            status.sql_ok === false ? "bg-red-500" : "bg-zinc-600"
+          }`} />
+          <span className={`text-xs ${
+            status.sql_ok === true  ? "text-zinc-400" :
+            status.sql_ok === false ? "text-red-400" : "text-zinc-600"
+          }`}>
+            {status.sql_ok === true  ? "Pastel connected" :
+             status.sql_ok === false ? "Pastel connection error" :
+             "Pastel status unknown"}
+          </span>
+        </div>
+
+        <span className="text-zinc-700 text-xs hidden sm:block">·</span>
+
+        {/* Last sync */}
+        <span className="text-xs text-zinc-500">
+          {status.last_sync_status === "accepted" && status.last_sync_at
+            ? `Last sync ${timeAgo(status.last_sync_at)}`
+            : status.last_sync_at
+            ? `Last attempt ${timeAgo(status.last_sync_at)} — ${status.last_sync_status}`
+            : "Not yet synced"}
+        </span>
+
+        {/* Pending badge */}
+        {hasPending && (
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-950 border border-amber-800 text-amber-300">
+            Sync queued for {status.pending_sync_month}/{status.pending_sync_year}
+          </span>
+        )}
+
+        {/* Force sync button */}
+        <button
+          onClick={() => { setOpen((o) => !o); setResult(null); }}
+          className="ml-auto text-xs px-3 py-1.5 rounded border border-white/10 text-zinc-400 hover:text-white hover:border-teal-500/40 hover:bg-teal-500/10 transition-colors"
+        >
+          {open ? "Cancel" : "↺ Request Sync"}
+        </button>
+      </div>
+
+      {/* Inline sync form */}
+      {open && (
+        <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-white/5">
+          <span className="text-xs text-zinc-500">Sync period:</span>
+          <select
+            value={month}
+            onChange={(e) => setMonth(Number(e.target.value))}
+            className="text-xs bg-zinc-800 border border-white/10 rounded px-2 py-1 text-zinc-200"
+          >
+            {MONTHS.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
+          </select>
+          <select
+            value={year}
+            onChange={(e) => setYear(Number(e.target.value))}
+            className="text-xs bg-zinc-800 border border-white/10 rounded px-2 py-1 text-zinc-200"
+          >
+            {years.map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+          <button
+            onClick={handleSync}
+            disabled={loading}
+            className="text-xs px-3 py-1.5 rounded bg-teal-600 hover:bg-teal-500 text-white font-medium disabled:opacity-50 transition-colors"
+          >
+            {loading ? "Requesting…" : "Request Sync"}
+          </button>
+          <span className="text-xs text-zinc-600">Agent will run within 5 min</span>
+        </div>
+      )}
+
+      {/* Feedback */}
+      {result && (
+        <p className={`text-xs ${result === "ok" ? "text-emerald-400" : "text-red-400"}`}>
+          {result === "ok"
+            ? `Sync requested for ${MONTHS[month - 1]} ${year}. Your agent will run it within 5 minutes.`
+            : "Could not queue sync. Check that your agent is online and try again."}
+        </p>
+      )}
+    </div>
+  );
+}
 
 function LegendDot({ color, label }: { color: string; label: string }) {
   return (

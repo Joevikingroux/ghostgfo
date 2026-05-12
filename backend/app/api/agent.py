@@ -77,6 +77,11 @@ def _decrypt_envelope(payload_b64: str, key: str) -> dict:
 # Request / response schemas
 # ---------------------------------------------------------------------------
 
+class ForceSyncRequest(BaseModel):
+    month: int
+    year: int
+
+
 class IngestRequest(BaseModel):
     payload: str  # base64-encoded AES-GCM envelope
 
@@ -226,10 +231,103 @@ def heartbeat(
 
 
 # ---------------------------------------------------------------------------
-# Admin endpoints (JWT-authenticated — Numbers10 staff only)
+# Company-scoped endpoints (JWT-authenticated — any logged-in user)
 # ---------------------------------------------------------------------------
 
-from app.api.deps import require_admin  # noqa: E402
+from app.api.deps import get_current_user, require_admin  # noqa: E402
+from app.models.user import User  # noqa: E402
+
+
+class CompanyAgentStatus(BaseModel):
+    has_agent: bool
+    agent_id: str | None = None
+    connected: bool = False
+    sql_ok: bool | None = None
+    last_sync_at: datetime | None = None
+    last_sync_status: str | None = None
+    server_name: str | None = None
+    pending_sync_month: int | None = None
+    pending_sync_year: int | None = None
+
+
+@router.get("/company-status", response_model=CompanyAgentStatus)
+def company_agent_status(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> CompanyAgentStatus:
+    """Return the Evolution agent status for the current user's company.
+
+    Returns has_agent=False if no active agent exists (e.g. Partner mode).
+    """
+    if not user.company_id:
+        return CompanyAgentStatus(has_agent=False)
+
+    agent = db.execute(
+        select(EvolutionAgent).where(
+            EvolutionAgent.company_id == user.company_id,
+            EvolutionAgent.active == True,  # noqa: E712
+        )
+    ).scalar_one_or_none()
+
+    if not agent:
+        return CompanyAgentStatus(has_agent=False)
+
+    now = datetime.now(timezone.utc)
+    connected = False
+    if agent.last_heartbeat_at:
+        diff = (now - agent.last_heartbeat_at).total_seconds()
+        connected = diff <= 12 * 60  # 12-minute grace (5-min interval + buffer)
+
+    return CompanyAgentStatus(
+        has_agent=True,
+        agent_id=str(agent.id),
+        connected=connected,
+        sql_ok=agent.sql_connection_ok,
+        last_sync_at=agent.last_sync_at,
+        last_sync_status=agent.last_sync_status,
+        server_name=agent.server_name,
+        pending_sync_month=agent.pending_sync_month,
+        pending_sync_year=agent.pending_sync_year,
+    )
+
+
+@router.post("/company-sync")
+def company_request_sync(
+    body: ForceSyncRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Queue an on-demand sync for the current user's company agent.
+
+    The agent will pick this up on its next 5-minute poll and run the sync.
+    Accessible to owners and bookkeepers — no admin role required.
+    """
+    if not user.company_id:
+        raise HTTPException(status_code=400, detail="No company associated with your account")
+
+    agent = db.execute(
+        select(EvolutionAgent).where(
+            EvolutionAgent.company_id == user.company_id,
+            EvolutionAgent.active == True,  # noqa: E712
+        )
+    ).scalar_one_or_none()
+
+    if not agent:
+        raise HTTPException(status_code=404, detail="No active Evolution agent for your company")
+
+    agent.pending_sync_month = body.month
+    agent.pending_sync_year = body.year
+    db.commit()
+    log.info(
+        "Company sync queued by user %s: %02d/%d",
+        user.id, body.month, body.year,
+    )
+    return {"ok": True, "queued_month": body.month, "queued_year": body.year}
+
+
+# ---------------------------------------------------------------------------
+# Admin endpoints (JWT-authenticated — Numbers10 staff only)
+# ---------------------------------------------------------------------------
 
 
 class CreateAgentRequest(BaseModel):
@@ -395,11 +493,6 @@ def reactivate_agent(
     db.commit()
     db.refresh(agent)
     return _agent_detail(agent)
-
-
-class ForceSyncRequest(BaseModel):
-    month: int
-    year: int
 
 
 @router.post("/agents/{agent_id}/force-sync")

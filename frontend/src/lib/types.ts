@@ -205,6 +205,18 @@ export interface AdminOverview {
   fetched_at: string;
 }
 
+export interface CompanyAgentStatus {
+  has_agent: boolean;
+  agent_id: string | null;
+  connected: boolean;
+  sql_ok: boolean | null;
+  last_sync_at: string | null;
+  last_sync_status: string | null;
+  server_name: string | null;
+  pending_sync_month: number | null;
+  pending_sync_year: number | null;
+}
+
 export interface ServiceCheck {
   ok: boolean;
   message: string;
