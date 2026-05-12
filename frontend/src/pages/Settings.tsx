@@ -64,19 +64,24 @@ export default function SettingsPage() {
     return <div className="text-zinc-500 text-sm">Loading…</div>;
   }
 
+  // Staff accounts (admin/tech) have no company — show personal security only
   if (!company) {
     return (
-      <div className="max-w-xl space-y-4">
+      <div className="max-w-xl space-y-6">
         <div>
-          <h1 className="font-heading text-2xl font-bold">Settings</h1>
-        </div>
-        <div className="card p-6 text-center space-y-2">
-          <p className="text-zinc-300 font-medium">No company linked to this account.</p>
-          <p className="text-zinc-500 text-sm">
-            Admin accounts are not tied to a specific company. To manage client settings,
-            go to <strong className="text-white">Admin → Clients</strong> and edit the company directly.
+          <h1 className="font-heading text-2xl font-bold">Account Settings</h1>
+          <p className="text-zinc-400 text-sm mt-1">
+            Manage your password and two-factor authentication.
           </p>
         </div>
+        <div className="card p-5 bg-zinc-900/50 border border-white/5">
+          <p className="text-xs text-zinc-500">
+            Staff accounts are not tied to a specific company. To manage client settings go to{" "}
+            <strong className="text-zinc-300">Admin → Clients</strong>.
+          </p>
+        </div>
+        <TwoFASection user={user} onUpdated={async () => { const r = await getMe(); setUser(r.data); refetchAuth(); }} />
+        <ChangePasswordSection />
       </div>
     );
   }
