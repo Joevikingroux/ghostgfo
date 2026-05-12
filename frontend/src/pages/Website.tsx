@@ -229,14 +229,14 @@ function Hero() {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
-          <Link
-            to="/signup"
+          <a
+            href="mailto:ghostcfo@numbers10.co.za"
             className="group flex items-center gap-2 px-8 py-4 rounded-xl text-black font-bold text-base transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(45,212,191,0.4)]"
             style={{ background: "linear-gradient(135deg,#2DD4BF,#06B6D4)" }}
           >
             Get started from R500/month
             <span className="group-hover:translate-x-1 transition-transform">{Icon.arrow}</span>
-          </Link>
+          </a>
           <button
             onClick={() => document.querySelector("#how-it-works")?.scrollIntoView({ behavior: "smooth" })}
             className="flex items-center gap-2 px-8 py-4 rounded-xl text-zinc-300 font-semibold border border-white/10 hover:border-white/20 hover:text-white transition-all text-base"
@@ -760,13 +760,13 @@ function About() {
         <div>
           <SectionLabel>About</SectionLabel>
           <h2 className="font-heading font-bold text-4xl text-white mb-5 leading-tight">
-            Built by a team that has lived inside Pastel for 20 years
+            Built by a team that has lived inside Pastel since 2012
           </h2>
           <p className="text-zinc-400 leading-relaxed mb-4">
             Ghost CFO is a product by{" "}
             <span className="text-white font-semibold">Numbers10 Technology Solutions</span>,
             a South African IT company that has been implementing, supporting and integrating
-            Sage Pastel for small businesses since 2006.
+            Sage Pastel for small businesses since 2012.
           </p>
           <p className="text-zinc-400 leading-relaxed mb-6">
             We've seen hundreds of business owners receive a trial balance they don't
@@ -794,7 +794,7 @@ function About() {
 
         <div className="grid grid-cols-2 gap-4">
           {[
-            { stat: "20+", label: "Years Pastel experience" },
+            { stat: "14+", label: "Years Pastel experience" },
             { stat: "R500", label: "Starting price per month" },
             { stat: "3 mins", label: "Monthly upload time" },
             { stat: "7am", label: "Report in your inbox" },
