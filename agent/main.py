@@ -121,7 +121,7 @@ def run(month: int | None, year: int | None) -> None:
 
 @cli.command()
 def poll() -> None:
-    """Send a heartbeat ping and check for pending on-demand sync requests.
+    """Send heartbeat + SQL status, check for pending on-demand sync requests.
 
     Called every 5 minutes by the GhostCFOAgentPoll scheduled task.
     Exits after completing — Task Scheduler handles the repeat interval.
@@ -130,9 +130,25 @@ def poll() -> None:
     base_url = cfg.get("base_url", "https://ghostcfo.numbers10.co.za")
     api_key = cfg["api_key"]
 
-    from sync.uploader import send_heartbeat
-    send_heartbeat(api_key, base_url)
+    # Test SQL Server connection so the dashboard can show SQL status
+    sql_ok: bool | None = None
+    try:
+        sql_ok = evolution_db.test_connection(
+            server=cfg["sql_server"],
+            database=cfg["sql_db"],
+            username=cfg.get("sql_username", ""),
+            password=cfg.get("sql_password", ""),
+        )
+        log.debug("SQL connection test: %s", "OK" if sql_ok else "FAILED")
+    except Exception as exc:
+        log.warning("SQL connection test raised: %s", exc)
+        sql_ok = False
 
+    # Send heartbeat with SQL status
+    from sync.uploader import send_heartbeat
+    send_heartbeat(api_key, base_url, sql_ok=sql_ok)
+
+    # Check for pending on-demand sync (set by admin via Force Sync)
     from service.scheduler import _check_pending
     pending = _check_pending(cfg)
     if pending:

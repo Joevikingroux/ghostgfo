@@ -30,6 +30,7 @@ class EvolutionAgent(Base, UUIDPK):
     last_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_sync_status: Mapped[str | None] = mapped_column(String(32))
+    sql_connection_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     # Set when a bookkeeper submits payroll files and wants a report generated.
     # Agent polls /status, sees these, runs a sync for that period, then clears them.

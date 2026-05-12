@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
-import { getAdminOverview } from "@/lib/api";
+import { forceSyncAgent, getAdminOverview } from "@/lib/api";
 import { formatPeriod } from "@/lib/format";
 import type { AdminClientCard, AdminOverview, SystemStatus } from "@/lib/types";
 
@@ -280,7 +280,13 @@ const CONN_TEXT: Record<AgentConnectionStatus, string> = {
   inactive: "text-zinc-600",
 };
 
-function AgentStatusPanel({ clients }: { clients: AdminClientCard[] }) {
+function AgentStatusPanel({
+  clients,
+  onSyncQueued,
+}: {
+  clients: AdminClientCard[];
+  onSyncQueued: () => void;
+}) {
   const agentClients = clients.filter((c) => c.data_source === "evolution" || c.agent_active);
   if (agentClients.length === 0) return null;
 
@@ -288,13 +294,44 @@ function AgentStatusPanel({ clients }: { clients: AdminClientCard[] }) {
   const onlineCount  = statuses.filter((s) => s.status === "online").length;
   const problemCount = statuses.filter((s) => s.status === "offline").length;
 
+  // Force-sync state
+  const now = new Date();
+  const defaultMonth = now.getMonth() === 0 ? 12 : now.getMonth();
+  const defaultYear  = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+
+  const [openSyncId, setOpenSyncId] = useState<string | null>(null);
+  const [syncMonth, setSyncMonth]   = useState(defaultMonth);
+  const [syncYear, setSyncYear]     = useState(defaultYear);
+  const [syncing, setSyncing]       = useState(false);
+  const [syncResult, setSyncResult] = useState<{ id: string; ok: boolean } | null>(null);
+
+  const handleForceSync = async (agentId: string) => {
+    if (!agentId) return;
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      await forceSyncAgent(agentId, syncMonth, syncYear);
+      setSyncResult({ id: agentId, ok: true });
+      setOpenSyncId(null);
+      onSyncQueued();
+      setTimeout(() => setSyncResult(null), 8000);
+    } catch {
+      setSyncResult({ id: agentId, ok: false });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const years  = [now.getFullYear() - 1, now.getFullYear()];
+
   return (
     <div className="card p-5">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <span className={`w-2 h-2 rounded-full shrink-0 ${problemCount > 0 ? "bg-red-500 animate-pulse" : "bg-emerald-400 animate-pulse"}`} />
-          <h3 className="font-heading font-bold text-sm text-white">Agent Connections</h3>
+          <h3 className="font-heading font-bold text-sm text-white">Evolution Agents</h3>
           <span className="text-xs text-zinc-600">· live</span>
         </div>
         <div className="flex items-center gap-3 text-xs">
@@ -303,7 +340,7 @@ function AgentStatusPanel({ clients }: { clients: AdminClientCard[] }) {
           <span className="text-zinc-400">{agentClients.length} total</span>
           {problemCount > 0 && (
             <span className="ml-1 px-2 py-0.5 rounded-full bg-red-950 border border-red-800 text-red-300 font-medium">
-              {problemCount} need attention
+              {problemCount} offline
             </span>
           )}
         </div>
@@ -311,37 +348,131 @@ function AgentStatusPanel({ clients }: { clients: AdminClientCard[] }) {
 
       {/* Agent rows */}
       <div className="divide-y divide-white/5">
-        {statuses.map(({ c, status }) => (
-          <div key={c.id} className="flex items-center gap-4 py-2.5 first:pt-0 last:pb-0">
-            {/* Status dot */}
-            <span className={`w-2 h-2 rounded-full shrink-0 ${CONN_DOT[status]} ${status === "online" ? "animate-pulse" : ""}`} />
+        {statuses.map(({ c, status }) => {
+          const hasPending = !!(c.agent_pending_sync_month && c.agent_pending_sync_year);
+          const isOpen = openSyncId === c.id;
 
-            {/* Company + server */}
-            <div className="flex-1 min-w-0">
-              <span className="text-sm font-medium text-zinc-200">{c.name}</span>
-              {c.agent_server_name && (
-                <span className="text-xs text-zinc-600 ml-2">{c.agent_server_name}</span>
+          return (
+            <div key={c.id} className="py-3 first:pt-0 last:pb-0 space-y-2">
+              {/* Main row */}
+              <div className="flex items-center gap-3 flex-wrap">
+                {/* Connection dot */}
+                <span className={`w-2 h-2 rounded-full shrink-0 ${CONN_DOT[status]} ${status === "online" ? "animate-pulse" : ""}`} />
+
+                {/* Company + server / db */}
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium text-zinc-200">{c.name}</span>
+                  {c.agent_server_name && (
+                    <span className="text-xs text-zinc-500 ml-2">{c.agent_server_name}</span>
+                  )}
+                  {c.agent_db_name && (
+                    <span className="text-xs text-zinc-600 ml-1">/ {c.agent_db_name}</span>
+                  )}
+                </div>
+
+                {/* Connection status */}
+                <span className={`text-xs font-medium shrink-0 ${CONN_TEXT[status]}`}>
+                  {CONN_LABEL[status]}
+                </span>
+
+                {/* SQL status */}
+                <span className={`flex items-center gap-1 text-xs shrink-0 ${
+                  c.agent_sql_ok === true  ? "text-emerald-400" :
+                  c.agent_sql_ok === false ? "text-red-400" :
+                  "text-zinc-600"
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                    c.agent_sql_ok === true  ? "bg-emerald-400" :
+                    c.agent_sql_ok === false ? "bg-red-500" :
+                    "bg-zinc-700"
+                  }`} />
+                  {c.agent_sql_ok === true  ? "SQL OK" :
+                   c.agent_sql_ok === false ? "SQL Error" :
+                   "SQL Unknown"}
+                </span>
+
+                {/* Last heartbeat */}
+                <span className="text-xs text-zinc-600 shrink-0 hidden sm:block">
+                  {c.agent_last_heartbeat ? `Ping ${timeAgo(c.agent_last_heartbeat)}` : "Never connected"}
+                </span>
+
+                {/* Last sync */}
+                <span className="text-xs text-zinc-500 shrink-0 hidden md:block">
+                  {c.agent_status === "accepted" && c.agent_last_sync
+                    ? `Synced ${timeAgo(c.agent_last_sync)}`
+                    : c.agent_last_sync
+                    ? `Sync ${c.agent_status ?? "unknown"} ${timeAgo(c.agent_last_sync)}`
+                    : "Not yet synced"}
+                </span>
+
+                {/* Pending badge */}
+                {hasPending && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-950 border border-amber-800 text-amber-300 shrink-0">
+                    Sync pending {c.agent_pending_sync_month}/{c.agent_pending_sync_year}
+                  </span>
+                )}
+
+                {/* Force sync toggle */}
+                {c.agent_id && (
+                  <button
+                    onClick={() => {
+                      if (isOpen) { setOpenSyncId(null); return; }
+                      setSyncMonth(defaultMonth);
+                      setSyncYear(defaultYear);
+                      setSyncResult(null);
+                      setOpenSyncId(c.id);
+                    }}
+                    className="text-xs px-2.5 py-1 rounded border border-white/10 text-zinc-400 hover:text-white hover:border-teal-500/50 hover:bg-teal-500/10 transition-colors shrink-0"
+                  >
+                    {isOpen ? "Cancel" : "↺ Force Sync"}
+                  </button>
+                )}
+              </div>
+
+              {/* Inline force-sync form */}
+              {isOpen && c.agent_id && (
+                <div className="flex items-center gap-2 pl-5 flex-wrap">
+                  <span className="text-xs text-zinc-500">Sync period:</span>
+                  <select
+                    value={syncMonth}
+                    onChange={(e) => setSyncMonth(Number(e.target.value))}
+                    className="text-xs bg-zinc-800 border border-white/10 rounded px-2 py-1 text-zinc-200"
+                  >
+                    {MONTHS.map((m, i) => (
+                      <option key={i + 1} value={i + 1}>{m}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={syncYear}
+                    onChange={(e) => setSyncYear(Number(e.target.value))}
+                    className="text-xs bg-zinc-800 border border-white/10 rounded px-2 py-1 text-zinc-200"
+                  >
+                    {years.map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                  <button
+                    onClick={() => handleForceSync(c.agent_id!)}
+                    disabled={syncing}
+                    className="text-xs px-3 py-1 rounded bg-teal-600 hover:bg-teal-500 text-white font-medium disabled:opacity-50 transition-colors"
+                  >
+                    {syncing ? "Queuing…" : "Queue Sync"}
+                  </button>
+                  <span className="text-xs text-zinc-500">
+                    Agent will pick up within 5 min
+                  </span>
+                </div>
+              )}
+
+              {/* Success / error feedback */}
+              {syncResult?.id === c.id && (
+                <p className={`text-xs pl-5 ${syncResult.ok ? "text-emerald-400" : "text-red-400"}`}>
+                  {syncResult.ok
+                    ? `Sync queued for ${MONTHS[syncMonth - 1]} ${syncYear} — agent will run it within 5 minutes.`
+                    : "Failed to queue sync. Check the agent is active and try again."}
+                </p>
               )}
             </div>
-
-            {/* Status label */}
-            <span className={`text-xs font-medium shrink-0 ${CONN_TEXT[status]}`}>
-              {CONN_LABEL[status]}
-            </span>
-
-            {/* Heartbeat / last seen */}
-            <span className="text-xs text-zinc-600 shrink-0 w-24 text-right">
-              {c.agent_last_heartbeat ? timeAgo(c.agent_last_heartbeat) : "Never connected"}
-            </span>
-
-            {/* Last data sync (separate from connection) */}
-            <span className="text-xs text-zinc-600 shrink-0 hidden lg:block w-28 text-right">
-              {c.agent_last_sync
-                ? `Synced ${timeAgo(c.agent_last_sync)}`
-                : "No data yet"}
-            </span>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -452,7 +583,7 @@ export default function AdminDashboard() {
       <SystemStatusBar />
 
       {/* Agent connections */}
-      <AgentStatusPanel clients={data.clients} />
+      <AgentStatusPanel clients={data.clients} onSyncQueued={fetchData} />
 
       {/* Main grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

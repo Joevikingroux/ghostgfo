@@ -68,11 +68,17 @@ def admin_overview(
             "last_report_generated": report.generated_at.isoformat() if report and report.generated_at else None,
             "payroll_pending": bool(report.payroll_pending) if report else False,
             "email_sent": bool(report.email_sent) if report else False,
+            # Agent fields
+            "agent_id": str(agent.id) if agent else None,
             "agent_last_heartbeat": agent.last_heartbeat_at.isoformat() if agent and agent.last_heartbeat_at else None,
             "agent_last_sync": agent.last_sync_at.isoformat() if agent and agent.last_sync_at else None,
             "agent_status": agent.last_sync_status if agent else None,
             "agent_active": bool(agent.active) if agent else False,
             "agent_server_name": agent.server_name if agent else None,
+            "agent_db_name": agent.db_name if agent else None,
+            "agent_sql_ok": agent.sql_connection_ok if agent else None,
+            "agent_pending_sync_month": agent.pending_sync_month if agent else None,
+            "agent_pending_sync_year": agent.pending_sync_year if agent else None,
         })
 
     health_dist = dict(Counter(

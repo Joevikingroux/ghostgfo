@@ -16,20 +16,24 @@ log = logging.getLogger(__name__)
 _TIMEOUT = 30  # seconds per request
 
 
-def send_heartbeat(api_key: str, base_url: str) -> None:
+def send_heartbeat(api_key: str, base_url: str, sql_ok: bool | None = None) -> None:
     """POST a liveness ping to /api/agent/heartbeat.
 
-    Fire-and-forget — logs a warning on failure but never raises so the
-    calling thread continues uninterrupted.
+    Optionally reports SQL connection status via sql_ok in the JSON body.
+    Fire-and-forget — logs a warning on failure but never raises.
     """
     url = base_url.rstrip("/") + "/api/agent/heartbeat"
     try:
         with httpx.Client(timeout=10, verify=True) as client:
-            resp = client.post(url, headers={"X-Agent-Key": api_key})
+            resp = client.post(
+                url,
+                headers={"X-Agent-Key": api_key},
+                json={"sql_ok": sql_ok},
+            )
         if resp.status_code not in (200, 204):
             log.warning("Heartbeat returned HTTP %d", resp.status_code)
         else:
-            log.debug("Heartbeat sent OK.")
+            log.debug("Heartbeat sent OK (sql_ok=%s).", sql_ok)
     except Exception as exc:
         log.warning("Heartbeat failed: %s", exc)
 

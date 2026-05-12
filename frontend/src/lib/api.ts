@@ -114,6 +114,12 @@ export const getRevenueTrends = () =>
 export const reactivateAgent = (agent_id: string) =>
   client.post(`/agent/agents/${agent_id}/reactivate`);
 
+export const forceSyncAgent = (agent_id: string, month: number, year: number) =>
+  client.post<{ ok: boolean; queued_month: number; queued_year: number }>(
+    `/agent/agents/${agent_id}/force-sync`,
+    { month, year },
+  );
+
 // ---- Admin overview ----
 export const getAdminOverview = () => client.get<AdminOverview>("/admin/overview");
 

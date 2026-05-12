@@ -204,18 +204,24 @@ def agent_status(
     )
 
 
+class HeartbeatBody(BaseModel):
+    sql_ok: bool | None = None
+
+
 @router.post("/heartbeat", status_code=204, response_model=None)
 def heartbeat(
     x_agent_key: str = Header(alias="X-Agent-Key"),
+    body: HeartbeatBody | None = None,
     db: Session = Depends(get_db),
 ):
     """Lightweight liveness ping — agent calls this every 5 minutes.
 
-    Updates last_heartbeat_at so the operator dashboard can show whether
-    the agent process is running, independently of the monthly data sync.
+    Accepts an optional JSON body with sql_ok to report SQL connection health.
     """
     agent = _get_agent(x_agent_key, db)
     agent.last_heartbeat_at = datetime.now(timezone.utc)
+    if body and body.sql_ok is not None:
+        agent.sql_connection_ok = body.sql_ok
     db.commit()
 
 
@@ -389,6 +395,37 @@ def reactivate_agent(
     db.commit()
     db.refresh(agent)
     return _agent_detail(agent)
+
+
+class ForceSyncRequest(BaseModel):
+    month: int
+    year: int
+
+
+@router.post("/agents/{agent_id}/force-sync")
+def force_sync_agent(
+    agent_id: str,
+    body: ForceSyncRequest,
+    db: Session = Depends(get_db),
+    _: object = Depends(require_admin),
+) -> dict:
+    """Queue an on-demand sync for a specific period.
+
+    Sets pending_sync_month/year on the agent record. The agent's 5-minute
+    poll task will pick this up and run the sync within 5 minutes.
+    """
+    import uuid
+    agent = db.get(EvolutionAgent, uuid.UUID(agent_id))
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    agent.pending_sync_month = body.month
+    agent.pending_sync_year = body.year
+    db.commit()
+    log.info(
+        "Force sync queued for agent %s: %02d/%d",
+        agent_id, body.month, body.year,
+    )
+    return {"ok": True, "queued_month": body.month, "queued_year": body.year}
 
 
 @router.delete("/agents/{agent_id}")
