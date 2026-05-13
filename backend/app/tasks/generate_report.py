@@ -1,4 +1,5 @@
 """Celery task: end-to-end monthly report generation, then delivery."""
+
 from __future__ import annotations
 
 import uuid
@@ -20,9 +21,14 @@ def _cleanup_upload_files(upload_id: uuid.UUID, db) -> None:
         return
 
     file_fields = (
-        "income_statement_path", "balance_sheet_path", "debtors_age_path",
-        "creditors_age_path", "payroll_summary_path",
-        "payroll_employee_cost_path", "payroll_leave_path", "payroll_journal_path",
+        "income_statement_path",
+        "balance_sheet_path",
+        "debtors_age_path",
+        "creditors_age_path",
+        "payroll_summary_path",
+        "payroll_employee_cost_path",
+        "payroll_leave_path",
+        "payroll_journal_path",
     )
     for field in file_fields:
         path_str = getattr(upload, field, None)

@@ -1,4 +1,5 @@
 """Payroll metrics — staff cost, headcount, leave liability, cash cover."""
+
 from __future__ import annotations
 
 from datetime import date, timedelta
@@ -38,9 +39,7 @@ def compute(
 
     gross = float(summary.get("gross_total") or cost.get("gross_total") or 0.0)
     net = float(summary.get("net_total") or 0.0)
-    uif_er = float(
-        summary.get("uif_er_total") or cost.get("uif_er_total") or 0.0
-    )
+    uif_er = float(summary.get("uif_er_total") or cost.get("uif_er_total") or 0.0)
     sdl = float(summary.get("sdl_total") or cost.get("sdl_total") or 0.0)
     true_cost = float(
         summary.get("true_employer_cost")
@@ -79,7 +78,9 @@ def compute(
         "payroll_employer_sdl": round_money(sdl),
         "payroll_true_employer_cost": round_money(true_cost),
         "payroll_headcount": headcount,
-        "payroll_headcount_change": (headcount - previous_headcount) if previous_headcount is not None else 0,
+        "payroll_headcount_change": (headcount - previous_headcount)
+        if previous_headcount is not None
+        else 0,
         "payroll_pct_of_revenue": round_pct(pct_of_rev),
         "payroll_pct_prev_month": round_pct(prev_pct),
         "payroll_change_pct": round_pct(change_pct),

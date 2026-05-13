@@ -1,4 +1,5 @@
 """Per-month file upload bundle for Pastel Partner clients."""
+
 from __future__ import annotations
 
 import uuid

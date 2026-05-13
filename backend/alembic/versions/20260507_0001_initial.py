@@ -4,6 +4,7 @@ Revision ID: 20260507_0001
 Revises:
 Create Date: 2026-05-07
 """
+
 from __future__ import annotations
 
 from typing import Sequence
@@ -42,7 +43,9 @@ def upgrade() -> None:
         sa.Column("plan", sa.String(32), nullable=False, server_default="starter"),
         sa.Column("plan_start_date", sa.Date()),
         sa.Column("active", sa.Boolean(), nullable=False, server_default=sa.true()),
-        sa.Column("data_source", sa.String(32), nullable=False, server_default="partner"),
+        sa.Column(
+            "data_source", sa.String(32), nullable=False, server_default="partner"
+        ),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -190,9 +193,7 @@ def upgrade() -> None:
         ),
         sa.Column("period_month", sa.Integer(), nullable=False),
         sa.Column("period_year", sa.Integer(), nullable=False),
-        sa.Column(
-            "metrics", postgresql.JSONB(), nullable=False, server_default="{}"
-        ),
+        sa.Column("metrics", postgresql.JSONB(), nullable=False, server_default="{}"),
         sa.Column("narrative_summary", sa.Text()),
         sa.Column("narrative_revenue", sa.Text()),
         sa.Column("narrative_costs", sa.Text()),
@@ -201,7 +202,9 @@ def upgrade() -> None:
         sa.Column("narrative_cash", sa.Text()),
         sa.Column("narrative_actions", sa.Text()),
         sa.Column("pdf_path", sa.Text()),
-        sa.Column("email_sent", sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column(
+            "email_sent", sa.Boolean(), nullable=False, server_default=sa.false()
+        ),
         sa.Column("email_sent_at", sa.DateTime(timezone=True)),
         sa.Column(
             "whatsapp_sent", sa.Boolean(), nullable=False, server_default=sa.false()

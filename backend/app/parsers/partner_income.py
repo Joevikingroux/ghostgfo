@@ -9,6 +9,7 @@ Pastel Partner classifies accounts via the Account Code prefix:
 
 We do not assume that every export carries a "type" column — most don't.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -92,9 +93,7 @@ class IncomeStatementParser(BaseParser):
                 "Income Statement: cannot find Account Code or Description column"
             )
         if not col_current:
-            raise ValueError(
-                "Income Statement: cannot find Current Month column"
-            )
+            raise ValueError("Income Statement: cannot find Current Month column")
 
         rows: list[dict[str, Any]] = []
         totals = {

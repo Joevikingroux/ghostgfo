@@ -4,6 +4,7 @@ Per-employee row:
     Employee Code | Employee Name | Department | Gross Pay | PAYE |
     UIF (EE) | UIF (ER) | SDL | Other Deductions | Net Pay
 """
+
 from __future__ import annotations
 
 from typing import Any

@@ -8,6 +8,7 @@ GET  /api/payments/subscription          — get current subscription info (owne
 POST /api/payments/subscription/change   — upgrade or downgrade plan with proration
 POST /api/payments/subscription/cancel   — cancel subscription via PayFast API
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -18,7 +19,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
@@ -53,6 +54,7 @@ PAYFAST_URL = (
 # Signature helper
 # ---------------------------------------------------------------------------
 
+
 def _build_param_string(data: dict[str, Any], include_passphrase: bool = True) -> str:
     """Build the raw param string PayFast expects (before MD5)."""
     parts = []
@@ -65,7 +67,9 @@ def _build_param_string(data: dict[str, Any], include_passphrase: bool = True) -
         parts.append(f"{k}={urllib.parse.quote_plus(val)}")
     param_string = "&".join(parts)
     if include_passphrase and settings.payfast_passphrase:
-        param_string += "&passphrase=" + urllib.parse.quote_plus(settings.payfast_passphrase.strip())
+        param_string += "&passphrase=" + urllib.parse.quote_plus(
+            settings.payfast_passphrase.strip()
+        )
     return param_string
 
 
@@ -79,6 +83,7 @@ def _sign(data: dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 # PayFast Subscription API helpers
 # ---------------------------------------------------------------------------
+
 
 def _payfast_api_base() -> str:
     return (
@@ -98,8 +103,7 @@ def _payfast_api_headers() -> dict[str, str]:
         "version": "v1",
     }
     parts = [
-        f"{k}={urllib.parse.quote_plus(str(v))}"
-        for k, v in sorted(params.items())
+        f"{k}={urllib.parse.quote_plus(str(v))}" for k, v in sorted(params.items())
     ]
     signature = hashlib.md5("&".join(parts).encode()).hexdigest()
     return {
@@ -207,6 +211,7 @@ def _billing_cycle(plan_start_date: date) -> dict:
 # Subscription management models
 # ---------------------------------------------------------------------------
 
+
 class SubscriptionInfo(BaseModel):
     plan: str
     plan_price: int
@@ -252,13 +257,17 @@ def subscription_info(
 
     _require_owner(user)
     if not user.company_id:
-        raise HTTPException(status_code=404, detail="No company associated with this account")
+        raise HTTPException(
+            status_code=404, detail="No company associated with this account"
+        )
 
     company = db.get(Company, user.company_id)
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
 
-    billing = _billing_cycle(company.plan_start_date) if company.plan_start_date else None
+    billing = (
+        _billing_cycle(company.plan_start_date) if company.plan_start_date else None
+    )
     plan_price = PLAN_PRICES.get(company.plan, 0)
 
     return SubscriptionInfo(
@@ -287,7 +296,9 @@ def change_plan(
         raise HTTPException(status_code=400, detail=f"Unknown plan: {body.new_plan}")
 
     if not user.company_id:
-        raise HTTPException(status_code=404, detail="No company associated with this account")
+        raise HTTPException(
+            status_code=404, detail="No company associated with this account"
+        )
 
     company = db.get(Company, user.company_id)
     if not company:
@@ -306,9 +317,13 @@ def change_plan(
     new_price = PLAN_PRICES[body.new_plan]
     is_upgrade = new_price > old_price
 
-    billing = _billing_cycle(company.plan_start_date) if company.plan_start_date else None
+    billing = (
+        _billing_cycle(company.plan_start_date) if company.plan_start_date else None
+    )
     days_remaining = billing["days_remaining"] if billing else 30
-    next_billing_date = billing["next_billing_date"] if billing else (date.today() + timedelta(days=30))
+    next_billing_date = (
+        billing["next_billing_date"] if billing else (date.today() + timedelta(days=30))
+    )
 
     prorated_amount: float | None = None
     effective_date: str
@@ -349,7 +364,11 @@ def change_plan(
 
     log.info(
         "subscription.change company=%s old=%s new=%s upgrade=%s prorated=%s",
-        company.id, old_price, new_price, is_upgrade, prorated_amount,
+        company.id,
+        old_price,
+        new_price,
+        is_upgrade,
+        prorated_amount,
     )
 
     return ChangePlanResponse(
@@ -371,7 +390,9 @@ def cancel_subscription(
 
     _require_owner(user)
     if not user.company_id:
-        raise HTTPException(status_code=404, detail="No company associated with this account")
+        raise HTTPException(
+            status_code=404, detail="No company associated with this account"
+        )
 
     company = db.get(Company, user.company_id)
     if not company:
@@ -396,8 +417,12 @@ def cancel_subscription(
     company.subscription_status = "cancelled"
     db.commit()
 
-    billing = _billing_cycle(company.plan_start_date) if company.plan_start_date else None
-    access_until = billing["next_billing_date"].isoformat() if billing else "end of current period"
+    billing = (
+        _billing_cycle(company.plan_start_date) if company.plan_start_date else None
+    )
+    access_until = (
+        billing["next_billing_date"].isoformat() if billing else "end of current period"
+    )
 
     log.info("subscription.cancel company=%s", company.id)
     return {
@@ -410,6 +435,7 @@ def cancel_subscription(
 # ---------------------------------------------------------------------------
 # Initiate: create account + return PayFast fields
 # ---------------------------------------------------------------------------
+
 
 class InitiateRequest(BaseModel):
     plan: str
@@ -425,7 +451,9 @@ class InitiateResponse(BaseModel):
 
 
 @router.post("/initiate", response_model=InitiateResponse)
-def initiate_payment(body: InitiateRequest, db: Session = Depends(get_db)) -> InitiateResponse:
+def initiate_payment(
+    body: InitiateRequest, db: Session = Depends(get_db)
+) -> InitiateResponse:
     """Create a pending company + user account then return PayFast form fields."""
     from app.core.security import hash_password
     from app.models.company import Company
@@ -442,10 +470,15 @@ def initiate_payment(body: InitiateRequest, db: Session = Depends(get_db)) -> In
         )
 
     # If a pending account already exists for this email, reuse it instead of creating duplicates
-    existing = db.execute(select(User).where(User.email == body.email)).scalar_one_or_none()
+    existing = db.execute(
+        select(User).where(User.email == body.email)
+    ).scalar_one_or_none()
     if existing:
         if existing.active:
-            raise HTTPException(status_code=409, detail="An account with this email already exists. Please log in.")
+            raise HTTPException(
+                status_code=409,
+                detail="An account with this email already exists. Please log in.",
+            )
         # Pending user from a previous failed payment — reuse the company, update plan
         company = db.get(Company, existing.company_id)
         if company:
@@ -495,7 +528,9 @@ def initiate_payment(body: InitiateRequest, db: Session = Depends(get_db)) -> In
         "cancel_url": f"{settings.base_url}/payments/cancel?pid={company.id}",
         "notify_url": f"{settings.base_url}/payments/notify",
         "name_first": body.owner_name.split()[0] if body.owner_name else "",
-        "name_last": " ".join(body.owner_name.split()[1:]) if body.owner_name and len(body.owner_name.split()) > 1 else "",
+        "name_last": " ".join(body.owner_name.split()[1:])
+        if body.owner_name and len(body.owner_name.split()) > 1
+        else "",
         "email_address": body.email,
         "m_payment_id": m_payment_id,
         "amount": f"{amount:.2f}",
@@ -519,6 +554,7 @@ def initiate_payment(body: InitiateRequest, db: Session = Depends(get_db)) -> In
 # ITN webhook — PayFast POSTs here after successful payment
 # ---------------------------------------------------------------------------
 
+
 @router.post("/notify", status_code=200)
 async def payfast_notify(request: Request, db: Session = Depends(get_db)) -> str:
     """Instant Transaction Notification from PayFast — activates the subscription."""
@@ -530,20 +566,26 @@ async def payfast_notify(request: Request, db: Session = Depends(get_db)) -> str
     body_str = body_bytes.decode()
     params = dict(urllib.parse.parse_qsl(body_str))
 
-    log.info("payment.itn received params=%s", {k: v for k, v in params.items() if "key" not in k.lower()})
+    log.info(
+        "payment.itn received params=%s",
+        {k: v for k, v in params.items() if "key" not in k.lower()},
+    )
 
     # 1. Verify signature against the raw body — avoids re-encoding drift vs PayFast's PHP urlencode
     received_sig = params.get("signature", "")
     raw_parts = [seg for seg in body_str.split("&") if not seg.startswith("signature=")]
     raw_param_string = "&".join(raw_parts)
     if settings.payfast_passphrase:
-        raw_param_string += "&passphrase=" + urllib.parse.quote_plus(settings.payfast_passphrase.strip())
+        raw_param_string += "&passphrase=" + urllib.parse.quote_plus(
+            settings.payfast_passphrase.strip()
+        )
     expected_sig = hashlib.md5(raw_param_string.encode()).hexdigest()
     sig_ok = secrets.compare_digest(received_sig, expected_sig)
     if not sig_ok:
         log.warning(
             "payment.itn signature_mismatch received=%s expected=%s",
-            received_sig, expected_sig,
+            received_sig,
+            expected_sig,
         )
 
     # 2. Verify payment status
@@ -558,6 +600,7 @@ async def payfast_notify(request: Request, db: Session = Depends(get_db)) -> str
         return "ok"
 
     import uuid as _uuid
+
     try:
         cid = _uuid.UUID(company_id)
     except ValueError:
@@ -601,16 +644,18 @@ async def payfast_notify(request: Request, db: Session = Depends(get_db)) -> str
 def _send_welcome_email(company: Any, user: Any) -> None:
     """Send a welcome email after subscription activation."""
     import resend
+
     resend.api_key = settings.resend_api_key
     if not settings.resend_api_key or not (user and user.email):
         return
 
     portal_url = settings.base_url + "/login"
-    resend.Emails.send({
-        "from": f"{settings.from_name} <{settings.from_email}>",
-        "to": [user.email],
-        "subject": "Welcome to Ghost CFO — your account is active",
-        "html": f"""
+    resend.Emails.send(
+        {
+            "from": f"{settings.from_name} <{settings.from_email}>",
+            "to": [user.email],
+            "subject": "Welcome to Ghost CFO — your account is active",
+            "html": f"""
         <div style="font-family:Inter,sans-serif;max-width:520px;margin:auto;background:#000;color:#fff;padding:32px;border-radius:12px">
           <div style="margin-bottom:24px">
             <span style="font-size:22px;font-weight:700;background:linear-gradient(135deg,#2DD4BF,#06B6D4);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Ghost CFO</span>
@@ -632,12 +677,14 @@ def _send_welcome_email(company: Any, user: Any) -> None:
           <p style="color:#52525b;font-size:12px;margin-top:32px">Powered by Numbers10 Technology Solutions &middot; numbers10.co.za</p>
         </div>
         """,
-    })
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 # Success / cancel redirects (these are browser redirects from PayFast)
 # ---------------------------------------------------------------------------
+
 
 @router.get("/config-test")
 def config_test() -> dict:
@@ -671,7 +718,9 @@ def config_test() -> dict:
         "merchant_id_set": bool(settings.payfast_merchant_id),
         "merchant_key_set": bool(settings.payfast_merchant_key),
         "passphrase_set": bool(settings.payfast_passphrase),
-        "passphrase_length": len(settings.payfast_passphrase) if settings.payfast_passphrase else 0,
+        "passphrase_length": len(settings.payfast_passphrase)
+        if settings.payfast_passphrase
+        else 0,
         "param_string_without_passphrase": param_no_passphrase,
         "param_string_with_passphrase": param_with_passphrase,
         "md5_signature": hashlib.md5(param_with_passphrase.encode()).hexdigest(),
@@ -688,13 +737,16 @@ def payment_success() -> RedirectResponse:
 
 
 @router.get("/cancel")
-def payment_cancel(pid: str | None = None, db: Session = Depends(get_db)) -> RedirectResponse:
+def payment_cancel(
+    pid: str | None = None, db: Session = Depends(get_db)
+) -> RedirectResponse:
     """Clean up pending company/user when buyer cancels on PayFast."""
     if pid:
         import uuid as _uuid
         from app.models.company import Company
         from app.models.user import User as UserModel
         from sqlalchemy import delete as sa_delete
+
         try:
             cid = _uuid.UUID(pid)
             company = db.get(Company, cid)

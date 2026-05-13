@@ -5,6 +5,7 @@ GET  /api/agent/status   — agent health check (agent polls this)
 
 Auth: X-Agent-Key header (per-company API key stored in evolution_agents table).
 """
+
 from __future__ import annotations
 
 import base64
@@ -21,7 +22,6 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.models.evolution_agent import EvolutionAgent
-from app.models.report import Report
 from app.tasks.generate_report import generate_report_from_agent
 
 log = logging.getLogger(__name__)
@@ -33,14 +33,18 @@ router = APIRouter(prefix="/agent", tags=["agent"])
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _derive_agent_key(global_key: str, agent_id: str) -> bytes:
     """Derive a per-agent 32-byte AES key using HKDF-SHA256."""
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+
     key_bytes = global_key.encode()
     if len(key_bytes) != 32:
         key_bytes = key_bytes.ljust(32, b"\x00")[:32]
-    return HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=agent_id.encode()).derive(key_bytes)
+    return HKDF(
+        algorithm=hashes.SHA256(), length=32, salt=None, info=agent_id.encode()
+    ).derive(key_bytes)
 
 
 def _get_agent(api_key: str, db: Session) -> EvolutionAgent:
@@ -87,6 +91,7 @@ def _decrypt_envelope(payload_b64: str, key: str) -> dict:
 # Request / response schemas
 # ---------------------------------------------------------------------------
 
+
 class ForceSyncRequest(BaseModel):
     month: int = Field(..., ge=1, le=12)
     year: int = Field(..., ge=2020, le=2035)
@@ -118,6 +123,7 @@ class StatusResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.post("/ingest", response_model=IngestResponse)
 def ingest(
@@ -187,7 +193,10 @@ def ingest(
 
     log.info(
         "Payload accepted for %s %d/%d — task %s",
-        company.name, period_month, period_year, task.id,
+        company.name,
+        period_month,
+        period_year,
+        task.id,
     )
     return IngestResponse(
         accepted=True,
@@ -244,7 +253,7 @@ def heartbeat(
 # Company-scoped endpoints (JWT-authenticated — any logged-in user)
 # ---------------------------------------------------------------------------
 
-from app.api.deps import get_current_user, require_admin, require_staff  # noqa: E402
+from app.api.deps import get_current_user, require_staff  # noqa: E402
 from app.models.user import User  # noqa: E402
 
 
@@ -313,7 +322,9 @@ def company_request_sync(
     Accessible to owners and bookkeepers — no admin role required.
     """
     if not user.company_id:
-        raise HTTPException(status_code=400, detail="No company associated with your account")
+        raise HTTPException(
+            status_code=400, detail="No company associated with your account"
+        )
 
     agent = db.execute(
         select(EvolutionAgent).where(
@@ -323,14 +334,18 @@ def company_request_sync(
     ).scalar_one_or_none()
 
     if not agent:
-        raise HTTPException(status_code=404, detail="No active Evolution agent for your company")
+        raise HTTPException(
+            status_code=404, detail="No active Evolution agent for your company"
+        )
 
     agent.pending_sync_month = body.month
     agent.pending_sync_year = body.year
     db.commit()
     log.info(
         "Company sync queued by user %s: %02d/%d",
-        user.id, body.month, body.year,
+        user.id,
+        body.month,
+        body.year,
     )
     return {"ok": True, "queued_month": body.month, "queued_year": body.year}
 
@@ -359,6 +374,7 @@ class AgentDetail(BaseModel):
 
 class AgentCreatedDetail(AgentDetail):
     """Returned only on agent creation — credentials are not shown again after this."""
+
     api_key: str
     encryption_key: str
 
@@ -393,6 +409,7 @@ def create_agent(
 ) -> AgentCreatedDetail:
     """Provision a new agent. Returns API key + AES key once — not retrievable again."""
     import uuid
+
     api_key = secrets.token_urlsafe(32)
     agent = EvolutionAgent(
         company_id=uuid.UUID(body.company_id),
@@ -420,6 +437,7 @@ def update_agent(
 ) -> AgentDetail:
     """Update SQL connection details for an existing agent."""
     import uuid
+
     agent = db.get(EvolutionAgent, uuid.UUID(agent_id))
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
@@ -464,6 +482,7 @@ def system_status(
     # Redis
     try:
         import redis as _redis
+
         r = _redis.from_url(settings.redis_url, socket_connect_timeout=2)
         r.ping()
         redis_check = ServiceCheck(ok=True, message="Connected")
@@ -471,15 +490,23 @@ def system_status(
         redis_check = ServiceCheck(ok=False, message=str(exc)[:120])
 
     def cfg(ok: bool, label: str) -> ServiceCheck:
-        return ServiceCheck(ok=ok, message="Configured" if ok else f"{label} not configured")
+        return ServiceCheck(
+            ok=ok, message="Configured" if ok else f"{label} not configured"
+        )
 
     return SystemStatus(
         database=db_check,
         redis=redis_check,
-        payfast=cfg(bool(settings.payfast_merchant_id and settings.payfast_merchant_key), "PayFast credentials"),
+        payfast=cfg(
+            bool(settings.payfast_merchant_id and settings.payfast_merchant_key),
+            "PayFast credentials",
+        ),
         resend=cfg(bool(settings.resend_api_key), "RESEND_API_KEY"),
         openrouter=cfg(bool(settings.openrouter_api_key), "OPENROUTER_API_KEY"),
-        agent_key=cfg(settings.agent_encryption_key not in ("", "change-me-32-bytes"), "AGENT_ENCRYPTION_KEY"),
+        agent_key=cfg(
+            settings.agent_encryption_key not in ("", "change-me-32-bytes"),
+            "AGENT_ENCRYPTION_KEY",
+        ),
     )
 
 
@@ -491,6 +518,7 @@ def reactivate_agent(
 ) -> AgentDetail:
     """Re-activate a previously deactivated agent."""
     import uuid
+
     agent = db.get(EvolutionAgent, uuid.UUID(agent_id))
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
@@ -513,6 +541,7 @@ def force_sync_agent(
     poll task will pick this up and run the sync within 5 minutes.
     """
     import uuid
+
     agent = db.get(EvolutionAgent, uuid.UUID(agent_id))
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
@@ -521,7 +550,9 @@ def force_sync_agent(
     db.commit()
     log.info(
         "Force sync queued for agent %s: %02d/%d",
-        agent_id, body.month, body.year,
+        agent_id,
+        body.month,
+        body.year,
     )
     return {"ok": True, "queued_month": body.month, "queued_year": body.year}
 
@@ -534,6 +565,7 @@ def deactivate_agent(
 ) -> AgentDetail:
     """Soft-deactivate an agent — stops it from syncing but preserves the record."""
     import uuid
+
     agent = db.get(EvolutionAgent, uuid.UUID(agent_id))
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
@@ -551,6 +583,7 @@ def delete_agent(
 ) -> None:
     """Permanently delete an agent and its credentials."""
     import uuid
+
     agent = db.get(EvolutionAgent, uuid.UUID(agent_id))
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")

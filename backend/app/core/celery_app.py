@@ -1,4 +1,5 @@
 """Celery application — background report generation and scheduled tasks."""
+
 from __future__ import annotations
 
 from celery import Celery

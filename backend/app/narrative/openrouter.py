@@ -1,4 +1,5 @@
 """Thin OpenRouter API client with retry, timeout, and cost logging."""
+
 from __future__ import annotations
 
 import time

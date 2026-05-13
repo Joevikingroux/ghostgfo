@@ -3,6 +3,7 @@
 Called automatically after report generation, and available for manual
 re-trigger via the admin API.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -21,7 +22,6 @@ log = get_logger(__name__)
     default_retry_delay=60,  # 1 min initial, doubles each retry
 )
 def deliver_report_task(self, report_id: str) -> dict:
-    from sqlalchemy import select
 
     from app.core.database import SessionLocal
     from app.models.report import Report
@@ -48,14 +48,18 @@ def deliver_report_task(self, report_id: str) -> dict:
             if reminder_to:
                 ok = send_payroll_reminder_email(
                     to_email=reminder_to,
-                    to_name=company.bookkeeper_name or company.owner_name or company.name,
+                    to_name=company.bookkeeper_name
+                    or company.owner_name
+                    or company.name,
                     company_name=company.trading_name or company.name,
                     period_month=report.period_month,
                     period_year=report.period_year,
                     portal_url=settings.base_url,
                 )
                 log.info(
-                    "deliver.payroll_reminder_sent" if ok else "deliver.payroll_reminder_failed",
+                    "deliver.payroll_reminder_sent"
+                    if ok
+                    else "deliver.payroll_reminder_failed",
                     report_id=report_id,
                     to=reminder_to,
                 )
@@ -90,16 +94,22 @@ def deliver_report_task(self, report_id: str) -> dict:
                     report.email_sent = True
                     report.email_sent_at = datetime.now(timezone.utc)
                     db.commit()
-                    log.info("deliver.email_ok", report_id=report_id, to=recipient_email)
+                    log.info(
+                        "deliver.email_ok", report_id=report_id, to=recipient_email
+                    )
             except Exception as exc:
                 log.error("deliver.email_error", report_id=report_id, error=str(exc))
         else:
-            log.info("deliver.email_skipped", report_id=report_id, reason="no email or no PDF")
+            log.info(
+                "deliver.email_skipped",
+                report_id=report_id,
+                reason="no email or no PDF",
+            )
 
         if not results["email"] and recipient_email:
             raise self.retry(
                 exc=RuntimeError("Email delivery failed"),
-                countdown=60 * (2 ** self.request.retries),
+                countdown=60 * (2**self.request.retries),
             )
 
         return results

@@ -1,4 +1,5 @@
 """User account ORM model."""
+
 from __future__ import annotations
 
 import uuid
@@ -27,15 +28,23 @@ class User(Base, UUIDPK, Timestamps):
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # First-login password change
-    must_change_password: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    must_change_password: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
 
     # TOTP 2FA
     totp_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
     totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    totp_enrolled_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    totp_enrolled_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
 
     # Password reset / welcome-email token
-    password_reset_token: Mapped[str | None] = mapped_column(String(128), unique=True, nullable=True)
-    password_reset_expires: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    password_reset_token: Mapped[str | None] = mapped_column(
+        String(128), unique=True, nullable=True
+    )
+    password_reset_expires: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
 
     company = relationship("Company", back_populates="users")

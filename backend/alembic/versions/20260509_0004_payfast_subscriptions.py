@@ -4,6 +4,7 @@ Revision ID: 20260509_0004
 Revises: 20260509_0003
 Create Date: 2026-05-09
 """
+
 from __future__ import annotations
 
 from alembic import op
@@ -19,7 +20,12 @@ def upgrade() -> None:
     op.add_column("companies", sa.Column("payfast_token", sa.Text(), nullable=True))
     op.add_column(
         "companies",
-        sa.Column("subscription_status", sa.String(32), nullable=False, server_default="inactive"),
+        sa.Column(
+            "subscription_status",
+            sa.String(32),
+            nullable=False,
+            server_default="inactive",
+        ),
     )
 
 

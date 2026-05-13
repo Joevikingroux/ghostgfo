@@ -3,6 +3,7 @@
 Falls back to a deterministic stub when OPENROUTER_API_KEY is empty, so the
 pipeline can be tested end-to-end without spending API credits.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -15,7 +16,16 @@ from app.narrative.tone import LANG_EN, currency
 
 log = get_logger(__name__)
 
-SECTIONS = ["summary", "revenue", "costs", "debtors", "payroll", "cash", "actions", "trend"]
+SECTIONS = [
+    "summary",
+    "revenue",
+    "costs",
+    "debtors",
+    "payroll",
+    "cash",
+    "actions",
+    "trend",
+]
 
 
 @dataclass
@@ -163,9 +173,7 @@ def _stub_section(section: str, m: dict[str, Any], *, plan: str = "starter") -> 
             )
             n += 1
         if n == 1:
-            lines.append(
-                "1. Continue monitoring debtor days and cash runway weekly."
-            )
+            lines.append("1. Continue monitoring debtor days and cash runway weekly.")
         return "\n".join(lines)
     if section == "trend":
         if plan != "premium" or not m.get("yoy_available"):

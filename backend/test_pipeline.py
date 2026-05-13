@@ -9,6 +9,7 @@ No database or Celery required. Runs the full pipeline in-process.
 Set OPENROUTER_API_KEY in .env (or environment) to get a real LLM narrative.
 Without it the pipeline still completes using the built-in stub narrator.
 """
+
 from __future__ import annotations
 
 import sys
@@ -107,12 +108,20 @@ def run(
             click.echo(f"    ⚠  {w}")
         return result
 
-    income_result  = _parse(IncomeStatementParser, "income_statement_*.csv", "Income Statement")
+    income_result = _parse(
+        IncomeStatementParser, "income_statement_*.csv", "Income Statement"
+    )
     balance_result = _parse(BalanceSheetParser, "balance_sheet_*.csv", "Balance Sheet")
     debtors_result = _parse(DebtorAgeParser, "debtors_age_*.csv", "Debtor Age Analysis")
-    payroll_result = _parse(PayrollSummaryParser, "payroll_summary_*.csv", "Payroll Summary")
-    emp_cost_result = _parse(EmployeeCostParser, "payroll_employee_cost_*.csv", "Employee Cost")
-    leave_result   = _parse(LeaveLiabilityParser, "payroll_leave_*.csv", "Leave Liability")
+    payroll_result = _parse(
+        PayrollSummaryParser, "payroll_summary_*.csv", "Payroll Summary"
+    )
+    emp_cost_result = _parse(
+        EmployeeCostParser, "payroll_employee_cost_*.csv", "Employee Cost"
+    )
+    leave_result = _parse(
+        LeaveLiabilityParser, "payroll_leave_*.csv", "Leave Liability"
+    )
 
     if not income_result or not balance_result or not debtors_result:
         click.echo("\n  [ERROR] Missing required files. Aborting.", err=True)
@@ -132,27 +141,37 @@ def run(
         balance_totals=balance_result.totals,
         debtors_totals=debtors_result.totals,
         payroll_summary_totals=payroll_result.totals if payroll_result else None,
-        payroll_employee_cost_totals=emp_cost_result.totals if emp_cost_result else None,
+        payroll_employee_cost_totals=emp_cost_result.totals
+        if emp_cost_result
+        else None,
         payroll_leave_totals=leave_result.totals if leave_result else None,
         warnings=(
-            income_result.warnings
-            + balance_result.warnings
-            + debtors_result.warnings
+            income_result.warnings + balance_result.warnings + debtors_result.warnings
         ),
     )
     metrics = MetricsEngine().run(data)
 
-    click.echo(f"    Revenue:       R{metrics['revenue_current_month']:>12,.0f}  "
-               f"({metrics['revenue_change_pct']:+.1f}% vs prev)")
+    click.echo(
+        f"    Revenue:       R{metrics['revenue_current_month']:>12,.0f}  "
+        f"({metrics['revenue_change_pct']:+.1f}% vs prev)"
+    )
     click.echo(f"    Gross margin:  {metrics['gross_margin_pct']:.1f}%")
-    click.echo(f"    Cash balance:  R{metrics['cash_balance']:>12,.0f}  "
-               f"({metrics['cash_runway_weeks']:.1f} weeks runway)")
+    click.echo(
+        f"    Cash balance:  R{metrics['cash_balance']:>12,.0f}  "
+        f"({metrics['cash_runway_weeks']:.1f} weeks runway)"
+    )
     if metrics.get("payroll_gross_total"):
-        click.echo(f"    Payroll:       R{metrics['payroll_gross_total']:>12,.0f}  "
-                   f"({metrics['payroll_pct_of_revenue']:.1f}% of revenue)")
-        click.echo(f"    Leave liab:    R{metrics['leave_liability_rand']:>12,.0f}  "
-                   f"({metrics['leave_liability_weeks_payroll']:.1f} weeks of payroll)")
-    click.echo(f"    Health score:  {metrics['health_score']}/100 ({metrics['health_rating']})")
+        click.echo(
+            f"    Payroll:       R{metrics['payroll_gross_total']:>12,.0f}  "
+            f"({metrics['payroll_pct_of_revenue']:.1f}% of revenue)"
+        )
+        click.echo(
+            f"    Leave liab:    R{metrics['leave_liability_rand']:>12,.0f}  "
+            f"({metrics['leave_liability_weeks_payroll']:.1f} weeks of payroll)"
+        )
+    click.echo(
+        f"    Health score:  {metrics['health_score']}/100 ({metrics['health_rating']})"
+    )
     for flag in metrics.get("health_flags", []):
         click.echo(f"      ⚑  {flag}")
 

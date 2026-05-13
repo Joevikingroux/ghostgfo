@@ -1,4 +1,5 @@
 """File upload endpoint — Pastel Partner + Payroll exports."""
+
 from __future__ import annotations
 
 import shutil
@@ -38,20 +39,29 @@ def _delete_old_uploads(
     db: Session,
 ) -> None:
     """Delete files and DB records for any existing uploads for this company/period."""
-    old = db.execute(
-        select(Upload).where(
-            Upload.company_id == company_id,
-            Upload.period_month == period_month,
-            Upload.period_year == period_year,
+    old = (
+        db.execute(
+            select(Upload).where(
+                Upload.company_id == company_id,
+                Upload.period_month == period_month,
+                Upload.period_year == period_year,
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     for upload in old:
         # Delete all individual files that were saved for this upload
         for field in (
-            "income_statement_path", "balance_sheet_path", "debtors_age_path",
-            "creditors_age_path", "payroll_summary_path",
-            "payroll_employee_cost_path", "payroll_leave_path", "payroll_journal_path",
+            "income_statement_path",
+            "balance_sheet_path",
+            "debtors_age_path",
+            "creditors_age_path",
+            "payroll_summary_path",
+            "payroll_employee_cost_path",
+            "payroll_leave_path",
+            "payroll_journal_path",
         ):
             path_str = getattr(upload, field, None)
             if path_str:
@@ -62,7 +72,9 @@ def _delete_old_uploads(
         db.delete(upload)
 
     # Remove the now-empty period directory if it exists
-    period_dir = settings.upload_dir / str(company_id) / f"{period_year}-{period_month:02d}"
+    period_dir = (
+        settings.upload_dir / str(company_id) / f"{period_year}-{period_month:02d}"
+    )
     if period_dir.exists():
         shutil.rmtree(period_dir, ignore_errors=True)
 
@@ -117,7 +129,9 @@ def create_upload(
     if user.role not in {"bookkeeper", "owner", "admin", "tech"}:
         raise HTTPException(status_code=403, detail="Upload permission required")
     if not user.company_id:
-        raise HTTPException(status_code=400, detail="User not associated with a company")
+        raise HTTPException(
+            status_code=400, detail="User not associated with a company"
+        )
 
     company = db.get(Company, user.company_id)
     is_evolution = company and company.data_source == "evolution"
@@ -125,7 +139,9 @@ def create_upload(
     # Remove any previous upload files/records for this period before saving new ones
     _delete_old_uploads(user.company_id, period_month, period_year, db)
 
-    dest = settings.upload_dir / str(user.company_id) / f"{period_year}-{period_month:02d}"
+    dest = (
+        settings.upload_dir / str(user.company_id) / f"{period_year}-{period_month:02d}"
+    )
 
     upload = Upload(
         company_id=user.company_id,
@@ -139,13 +155,17 @@ def create_upload(
         # Evolution clients: accounting data is pushed automatically by the agent.
         # Only payroll files are uploaded here.
         if payroll_summary and payroll_summary.filename:
-            upload.payroll_summary_path = _save_upload(payroll_summary, dest, "payroll_summary")
+            upload.payroll_summary_path = _save_upload(
+                payroll_summary, dest, "payroll_summary"
+            )
         if payroll_employee_cost and payroll_employee_cost.filename:
             upload.payroll_employee_cost_path = _save_upload(
                 payroll_employee_cost, dest, "payroll_employee_cost"
             )
         if payroll_leave and payroll_leave.filename:
-            upload.payroll_leave_path = _save_upload(payroll_leave, dest, "payroll_leave")
+            upload.payroll_leave_path = _save_upload(
+                payroll_leave, dest, "payroll_leave"
+            )
 
         db.add(upload)
         db.commit()
@@ -154,6 +174,7 @@ def create_upload(
         # If a report already exists for this period, apply payroll immediately.
         # Otherwise, save the files and let the agent include them when it next syncs.
         from app.models.report import Report
+
         existing_report = db.execute(
             select(Report).where(
                 Report.company_id == user.company_id,
@@ -164,6 +185,7 @@ def create_upload(
 
         if existing_report:
             from app.tasks.generate_report import apply_payroll_to_report_task
+
             apply_payroll_to_report_task.delay(str(upload.id))
             log.info(
                 "upload.evolution.payroll_queued",
@@ -187,14 +209,18 @@ def create_upload(
             detail="income_statement, balance_sheet, and debtors_age are required.",
         )
 
-    upload.income_statement_path = _save_upload(income_statement, dest, "income_statement")
+    upload.income_statement_path = _save_upload(
+        income_statement, dest, "income_statement"
+    )
     upload.balance_sheet_path = _save_upload(balance_sheet, dest, "balance_sheet")
     upload.debtors_age_path = _save_upload(debtors_age, dest, "debtors_age")
 
     if creditors_age and creditors_age.filename:
         upload.creditors_age_path = _save_upload(creditors_age, dest, "creditors_age")
     if payroll_summary and payroll_summary.filename:
-        upload.payroll_summary_path = _save_upload(payroll_summary, dest, "payroll_summary")
+        upload.payroll_summary_path = _save_upload(
+            payroll_summary, dest, "payroll_summary"
+        )
     if payroll_employee_cost and payroll_employee_cost.filename:
         upload.payroll_employee_cost_path = _save_upload(
             payroll_employee_cost, dest, "payroll_employee_cost"
@@ -214,6 +240,7 @@ def create_upload(
     )
 
     from app.tasks.generate_report import generate_report_task
+
     generate_report_task.delay(str(upload.id))
 
     return upload
@@ -225,6 +252,7 @@ def list_uploads(
     db: Session = Depends(get_db),
 ):
     from sqlalchemy import select
+
     q = select(Upload).order_by(Upload.created_at.desc())
     if user.role != "admin":
         q = q.where(Upload.company_id == user.company_id)

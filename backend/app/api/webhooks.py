@@ -9,6 +9,7 @@ We use this to:
 Register the webhook once after deployment:
   curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://ghostcfo.numbers10.co.za/api/webhooks/telegram&secret_token=<WEBHOOK_SECRET>"
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Header, HTTPException, Request, status
@@ -72,13 +73,17 @@ async def _send_reply(chat_id: str, text: str) -> None:
     if not settings.telegram_bot_token:
         return
     import httpx
+
     url = f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage"
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            await client.post(url, json={
-                "chat_id": chat_id,
-                "text": text,
-                "parse_mode": "Markdown",
-            })
+            await client.post(
+                url,
+                json={
+                    "chat_id": chat_id,
+                    "text": text,
+                    "parse_mode": "Markdown",
+                },
+            )
     except Exception as exc:
         log.error("telegram_webhook.reply_failed", error=str(exc))

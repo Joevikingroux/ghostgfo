@@ -4,6 +4,7 @@ Revision ID: 20260509_0003
 Revises: 20260507_0002
 Create Date: 2026-05-09
 """
+
 from __future__ import annotations
 
 from alembic import op

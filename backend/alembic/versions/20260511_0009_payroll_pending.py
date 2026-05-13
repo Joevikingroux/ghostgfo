@@ -4,6 +4,7 @@ Revision ID: 20260511_0009
 Revises: 20260511_0008
 Create Date: 2026-05-11
 """
+
 from __future__ import annotations
 
 from alembic import op
@@ -18,7 +19,9 @@ depends_on = None
 def upgrade() -> None:
     op.add_column(
         "reports",
-        sa.Column("payroll_pending", sa.Boolean(), nullable=False, server_default="false"),
+        sa.Column(
+            "payroll_pending", sa.Boolean(), nullable=False, server_default="false"
+        ),
     )
 
 

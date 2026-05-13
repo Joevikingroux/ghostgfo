@@ -1,4 +1,5 @@
 """Small helpers shared across metric calculators."""
+
 from __future__ import annotations
 
 

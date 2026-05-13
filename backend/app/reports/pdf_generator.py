@@ -2,6 +2,7 @@
 
 Renders the Jinja2 HTML template to a PDF file and returns its path.
 """
+
 from __future__ import annotations
 
 import calendar
@@ -9,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from jinja2 import Environment, FileSystemLoader
-from weasyprint import CSS, HTML
+from weasyprint import HTML
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -23,6 +24,7 @@ _jinja = Environment(
     loader=FileSystemLoader(str(_TEMPLATES_DIR)),
     autoescape=True,
 )
+
 
 # Register custom filters
 def _currency(value: float) -> str:
@@ -92,5 +94,7 @@ def generate_pdf(
 
     HTML(string=html_str, base_url=str(_TEMPLATES_DIR)).write_pdf(str(out_path))
 
-    log.info("pdf.generated", path=str(out_path), size_kb=out_path.stat().st_size // 1024)
+    log.info(
+        "pdf.generated", path=str(out_path), size_kb=out_path.stat().st_size // 1024
+    )
     return out_path

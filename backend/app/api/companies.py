@@ -1,4 +1,5 @@
 """Company management endpoints (admin only for create/delete)."""
+
 from __future__ import annotations
 
 import uuid
@@ -8,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, require_admin, require_staff
+from app.api.deps import get_current_user, require_staff
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.logging import get_logger
@@ -66,7 +67,9 @@ def _provision_bookkeeper(
         company_name=company.name,
         reset_link=reset_url,
     )
-    log.info("bookkeeper.provisioned", email=bookkeeper_email, company_id=str(company.id))
+    log.info(
+        "bookkeeper.provisioned", email=bookkeeper_email, company_id=str(company.id)
+    )
 
 
 @router.get("", response_model=list[CompanyOut])
@@ -101,7 +104,9 @@ def create_company(
     db.refresh(company)
 
     if body.bookkeeper_email:
-        _provision_bookkeeper(db, company, body.bookkeeper_email, body.bookkeeper_name or "")
+        _provision_bookkeeper(
+            db, company, body.bookkeeper_email, body.bookkeeper_name or ""
+        )
 
     return company
 

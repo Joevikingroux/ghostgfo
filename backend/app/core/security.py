@@ -1,4 +1,5 @@
 """Password hashing, JWT helpers, TOTP utilities, and reset-token generation."""
+
 from __future__ import annotations
 
 import base64
@@ -21,16 +22,12 @@ def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode(), hashed.encode())
 
 
-def create_access_token(
-    subject: str, *, extra: dict[str, Any] | None = None
-) -> str:
+def create_access_token(subject: str, *, extra: dict[str, Any] | None = None) -> str:
     now = datetime.now(timezone.utc)
     payload: dict[str, Any] = {
         "sub": subject,
         "iat": int(now.timestamp()),
-        "exp": int(
-            (now + timedelta(minutes=settings.jwt_access_minutes)).timestamp()
-        ),
+        "exp": int((now + timedelta(minutes=settings.jwt_access_minutes)).timestamp()),
         "type": "access",
     }
     if extra:
@@ -52,7 +49,9 @@ def create_partial_token(user_id: str) -> str:
 
 def decode_token(token: str) -> dict[str, Any]:
     try:
-        return jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
+        return jwt.decode(
+            token, settings.secret_key, algorithms=[settings.jwt_algorithm]
+        )
     except JWTError as exc:
         raise ValueError("invalid token") from exc
 
@@ -66,22 +65,24 @@ def generate_reset_token() -> str:
 # TOTP helpers
 # ---------------------------------------------------------------------------
 
+
 def generate_totp_secret() -> str:
     import pyotp
+
     return pyotp.random_base32()
 
 
 def make_totp_qr_uri(secret: str, email: str) -> str:
     """Return the otpauth:// URI for provisioning."""
     import pyotp
-    return pyotp.totp.TOTP(secret).provisioning_uri(
-        name=email, issuer_name="Ghost CFO"
-    )
+
+    return pyotp.totp.TOTP(secret).provisioning_uri(name=email, issuer_name="Ghost CFO")
 
 
 def make_totp_qr_image(secret: str, email: str) -> str:
     """Return a base64-encoded PNG data URI of the QR code."""
     import qrcode
+
     uri = make_totp_qr_uri(secret, email)
     qr = qrcode.QRCode(box_size=6, border=2)
     qr.add_data(uri)
@@ -94,4 +95,5 @@ def make_totp_qr_image(secret: str, email: str) -> str:
 
 def verify_totp(secret: str, code: str) -> bool:
     import pyotp
+
     return pyotp.TOTP(secret).verify(code, valid_window=1)

@@ -1,4 +1,5 @@
 """Weekly cash pulse task — sends a Monday morning email to Professional+ clients."""
+
 from __future__ import annotations
 
 from app.core.celery_app import celery
@@ -22,12 +23,16 @@ def weekly_pulse_task(self) -> dict:
     skipped = 0
 
     with SessionLocal() as db:
-        companies = db.execute(
-            select(Company).where(
-                Company.active == True,
-                Company.plan.in_(["professional", "premium"]),
+        companies = (
+            db.execute(
+                select(Company).where(
+                    Company.active,
+                    Company.plan.in_(["professional", "premium"]),
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
         for company in companies:
             recipient = company.owner_email or company.bookkeeper_email

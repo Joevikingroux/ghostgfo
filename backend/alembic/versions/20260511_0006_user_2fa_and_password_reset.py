@@ -1,4 +1,5 @@
 """Add 2FA and password-reset columns to users."""
+
 from alembic import op
 import sqlalchemy as sa
 
@@ -9,13 +10,31 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("users", sa.Column("must_change_password", sa.Boolean(), nullable=False, server_default="false"))
+    op.add_column(
+        "users",
+        sa.Column(
+            "must_change_password", sa.Boolean(), nullable=False, server_default="false"
+        ),
+    )
     op.add_column("users", sa.Column("totp_secret", sa.String(64), nullable=True))
-    op.add_column("users", sa.Column("totp_enabled", sa.Boolean(), nullable=False, server_default="false"))
-    op.add_column("users", sa.Column("totp_enrolled_at", sa.TIMESTAMP(timezone=True), nullable=True))
-    op.add_column("users", sa.Column("password_reset_token", sa.String(128), nullable=True))
-    op.add_column("users", sa.Column("password_reset_expires", sa.TIMESTAMP(timezone=True), nullable=True))
-    op.create_index("ix_users_password_reset_token", "users", ["password_reset_token"], unique=True)
+    op.add_column(
+        "users",
+        sa.Column("totp_enabled", sa.Boolean(), nullable=False, server_default="false"),
+    )
+    op.add_column(
+        "users",
+        sa.Column("totp_enrolled_at", sa.TIMESTAMP(timezone=True), nullable=True),
+    )
+    op.add_column(
+        "users", sa.Column("password_reset_token", sa.String(128), nullable=True)
+    )
+    op.add_column(
+        "users",
+        sa.Column("password_reset_expires", sa.TIMESTAMP(timezone=True), nullable=True),
+    )
+    op.create_index(
+        "ix_users_password_reset_token", "users", ["password_reset_token"], unique=True
+    )
 
 
 def downgrade() -> None:

@@ -3,6 +3,7 @@
 Expected (loose) columns:
     Customer Code | Customer Name | Current | 30 Days | 60 Days | 90 Days | 90+ Days | Total
 """
+
 from __future__ import annotations
 
 from typing import Any

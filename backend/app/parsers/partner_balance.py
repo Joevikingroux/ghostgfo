@@ -8,6 +8,7 @@ We bucket by code prefix:
 
 Cash = sum of asset accounts whose description matches bank/cash heuristics.
 """
+
 from __future__ import annotations
 
 from typing import Any

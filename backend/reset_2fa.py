@@ -16,9 +16,11 @@ What it does:
 Security: requires SSH / physical access to the server — no API endpoint,
 no way to trigger this remotely.
 """
+
 from __future__ import annotations
 
 import sys
+
 
 def main() -> None:
     if len(sys.argv) != 2:
@@ -38,7 +40,7 @@ def main() -> None:
             print(f"ERROR: No user found with email '{email}'")
             sys.exit(1)
 
-        print(f"\nUser found:")
+        print("\nUser found:")
         print(f"  Email : {user.email}")
         print(f"  Name  : {user.full_name or '(none)'}")
         print(f"  Role  : {user.role}")
@@ -59,7 +61,9 @@ def main() -> None:
         db.commit()
 
         print(f"\n✓ 2FA has been cleared for {user.email}.")
-        print("  The user can now log in with their password only and re-enrol 2FA from Settings.")
+        print(
+            "  The user can now log in with their password only and re-enrol 2FA from Settings."
+        )
     finally:
         db.close()
 

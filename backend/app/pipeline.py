@@ -3,6 +3,7 @@
 Reads file paths from an Upload row, runs parsers → metrics → narrative → PDF,
 then saves results back to the Report row.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -91,7 +92,7 @@ def _execute(upload: Upload, db: Session) -> Report:
         warnings.extend(result.warnings)
         return result
 
-    income  = _parse(IncomeStatementParser, "income_statement_path", "income_statement")
+    income = _parse(IncomeStatementParser, "income_statement_path", "income_statement")
     balance = _parse(BalanceSheetParser, "balance_sheet_path", "balance_sheet")
     debtors = _parse(DebtorAgeParser, "debtors_age_path", "debtors_age")
 
@@ -108,9 +109,13 @@ def _execute(upload: Upload, db: Session) -> Report:
     emp_cost = None
     leave = None
     if plan in ("professional", "premium"):
-        payroll  = _parse(PayrollSummaryParser, "payroll_summary_path", "payroll_summary")
-        emp_cost = _parse(EmployeeCostParser, "payroll_employee_cost_path", "employee_cost")
-        leave    = _parse(LeaveLiabilityParser, "payroll_leave_path", "leave_liability")
+        payroll = _parse(
+            PayrollSummaryParser, "payroll_summary_path", "payroll_summary"
+        )
+        emp_cost = _parse(
+            EmployeeCostParser, "payroll_employee_cost_path", "employee_cost"
+        )
+        leave = _parse(LeaveLiabilityParser, "payroll_leave_path", "leave_liability")
 
     # Afrikaans language is Professional+ only
     language = getattr(company, "language", "en") or "en"
@@ -118,9 +123,15 @@ def _execute(upload: Upload, db: Session) -> Report:
         language = "en"
 
     # Prior month data enables payroll change % and headcount delta
-    prior = _get_prior_metrics(upload.company_id, upload.period_month, upload.period_year, db)
+    prior = _get_prior_metrics(
+        upload.company_id, upload.period_month, upload.period_year, db
+    )
     prior_payroll_gross = prior.get("payroll_gross_total") if prior else None
-    prior_headcount = int(prior["payroll_headcount"]) if prior and prior.get("payroll_headcount") is not None else None
+    prior_headcount = (
+        int(prior["payroll_headcount"])
+        if prior and prior.get("payroll_headcount") is not None
+        else None
+    )
 
     data = MetricsInput(
         period_month=upload.period_month,
@@ -143,17 +154,21 @@ def _execute(upload: Upload, db: Session) -> Report:
 
     # Premium: enrich metrics with YoY comparison and anomaly flags
     if plan == "premium":
-        _enrich_premium(metrics, upload.company_id, upload.period_month, upload.period_year, db)
+        _enrich_premium(
+            metrics, upload.company_id, upload.period_month, upload.period_year, db
+        )
 
     log.info("pipeline.narrative", upload_id=str(upload.id))
     narrative = NarrativeGenerator().generate(metrics, language=language, plan=plan)
 
     log.info("pipeline.pdf", upload_id=str(upload.id))
     from app.core.config import settings
+
     pdf_path = generate_pdf(metrics, narrative, output_dir=settings.reports_dir)
 
     # Upsert Report row (one per company per period)
     from sqlalchemy import select
+
     existing = db.execute(
         select(Report).where(
             Report.company_id == upload.company_id,
@@ -213,7 +228,8 @@ def run_for_agent_data(
         raise ValueError(f"Company {company_id} not found")
 
     log.info(
-        "pipeline.agent", company=company.name,
+        "pipeline.agent",
+        company=company.name,
         period=f"{period_month}/{period_year}",
     )
 
@@ -223,7 +239,11 @@ def run_for_agent_data(
     # Prior month data enables payroll change % and headcount delta
     prior = _get_prior_metrics(company_id, period_month, period_year, db)
     prior_payroll_gross = prior.get("payroll_gross_total") if prior else None
-    prior_headcount = int(prior["payroll_headcount"]) if prior and prior.get("payroll_headcount") is not None else None
+    prior_headcount = (
+        int(prior["payroll_headcount"])
+        if prior and prior.get("payroll_headcount") is not None
+        else None
+    )
 
     data = MetricsInput(
         period_month=period_month,
@@ -235,7 +255,9 @@ def run_for_agent_data(
         payroll_summary_totals=metrics_data.get("payroll_summary_totals"),
         payroll_employee_cost_totals=metrics_data.get("payroll_employee_cost_totals"),
         payroll_leave_totals=metrics_data.get("payroll_leave_totals"),
-        payroll_journal_integrated=metrics_data.get("payroll_journal_integrated", False),
+        payroll_journal_integrated=metrics_data.get(
+            "payroll_journal_integrated", False
+        ),
         previous_payroll_gross=prior_payroll_gross,
         previous_headcount=prior_headcount,
         warnings=[],
@@ -253,6 +275,7 @@ def run_for_agent_data(
     payroll_pending = False
     if plan in ("professional", "premium"):
         from app.models.upload import Upload
+
         payroll_upload = db.execute(
             select(Upload).where(
                 Upload.company_id == company_id,
@@ -265,7 +288,9 @@ def run_for_agent_data(
         if payroll_upload:
             log.info("pipeline.agent.payroll_found", upload_id=str(payroll_upload.id))
             pr = _parse_file(PayrollSummaryParser, payroll_upload.payroll_summary_path)
-            ec = _parse_file(EmployeeCostParser, payroll_upload.payroll_employee_cost_path)
+            ec = _parse_file(
+                EmployeeCostParser, payroll_upload.payroll_employee_cost_path
+            )
             lv = _parse_file(LeaveLiabilityParser, payroll_upload.payroll_leave_path)
             data.payroll_summary_totals = pr.totals if pr else None
             data.payroll_employee_cost_totals = ec.totals if ec else None
@@ -365,9 +390,15 @@ def apply_payroll_update(upload_id: uuid.UUID, db: Session) -> Report:
 
     existing = dict(report.metrics or {})
 
-    prior = _get_prior_metrics(upload.company_id, upload.period_month, upload.period_year, db)
+    prior = _get_prior_metrics(
+        upload.company_id, upload.period_month, upload.period_year, db
+    )
     prior_payroll_gross = prior.get("payroll_gross_total") if prior else None
-    prior_headcount = int(prior["payroll_headcount"]) if prior and prior.get("payroll_headcount") is not None else None
+    prior_headcount = (
+        int(prior["payroll_headcount"])
+        if prior and prior.get("payroll_headcount") is not None
+        else None
+    )
 
     pay = payroll_mod.compute(
         payroll.totals if payroll else None,
@@ -459,7 +490,9 @@ def _enrich_premium(
         # Two-year comparison for richer trend narrative
         if prior_y2 and prior_y2.metrics:
             pm2 = prior_y2.metrics
-            metrics["yoy2_revenue_change_pct"] = _pct(rev_then, pm2.get("revenue_current_month", 0))
+            metrics["yoy2_revenue_change_pct"] = _pct(
+                rev_then, pm2.get("revenue_current_month", 0)
+            )
             metrics["yoy2_prior_year_revenue"] = pm2.get("revenue_current_month", 0)
     else:
         metrics["yoy_available"] = False
@@ -473,15 +506,23 @@ def _enrich_premium(
         if m == 0:
             m, y = 12, y - 1
 
-    q_reports = db.execute(
-        select(Report).where(
-            Report.company_id == company_id,
-            or_(*q_filters),
+    q_reports = (
+        db.execute(
+            select(Report).where(
+                Report.company_id == company_id,
+                or_(*q_filters),
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
-    q_revenue = sum((r.metrics or {}).get("revenue_current_month", 0) for r in q_reports)
-    q_gross_profit = sum((r.metrics or {}).get("gross_profit_current", 0) for r in q_reports)
+    q_revenue = sum(
+        (r.metrics or {}).get("revenue_current_month", 0) for r in q_reports
+    )
+    q_gross_profit = sum(
+        (r.metrics or {}).get("gross_profit_current", 0) for r in q_reports
+    )
     q_costs = sum((r.metrics or {}).get("total_costs_current", 0) for r in q_reports)
 
     if period_month in (3, 6, 9, 12):
@@ -516,7 +557,9 @@ def _enrich_premium(
     metrics["anomalies"] = anomalies
 
 
-def _set_status(upload: Upload, status: str, db: Session, error: str | None = None) -> None:
+def _set_status(
+    upload: Upload, status: str, db: Session, error: str | None = None
+) -> None:
     upload.status = status
     if error:
         upload.error_message = error[:2000]

@@ -5,6 +5,7 @@ Usage:
     python seed.py --email admin@numbers10.co.za --password <password>
     python seed.py --email admin@numbers10.co.za --password <password> --with-test-company
 """
+
 from __future__ import annotations
 
 import secrets
@@ -46,7 +47,9 @@ def seed(email: str, password: str | None, with_test_company: bool) -> None:
 
     db = SessionLocal()
     try:
-        existing = db.execute(select(User).where(User.email == email)).scalar_one_or_none()
+        existing = db.execute(
+            select(User).where(User.email == email)
+        ).scalar_one_or_none()
         if existing:
             click.echo(f"  Admin user {email} already exists — skipping.")
         else:
@@ -80,7 +83,9 @@ def seed(email: str, password: str | None, with_test_company: bool) -> None:
                 db.add(company)
                 db.commit()
                 db.refresh(company)
-                click.echo(f"  ✓ Test company created: {company.name} (id={company.id})")
+                click.echo(
+                    f"  ✓ Test company created: {company.name} (id={company.id})"
+                )
 
                 bk_pass = secrets.token_urlsafe(12)
                 ow_pass = secrets.token_urlsafe(12)

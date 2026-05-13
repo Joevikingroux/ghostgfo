@@ -7,6 +7,7 @@ Revision ID: 20260512_0012
 Revises: 20260512_0011
 Create Date: 2026-05-12
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa
@@ -24,5 +25,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.add_column("evolution_agents", sa.Column("db_username", sa.String(255), nullable=True))
-    op.add_column("evolution_agents", sa.Column("db_password", sa.String(255), nullable=True))
+    op.add_column(
+        "evolution_agents", sa.Column("db_username", sa.String(255), nullable=True)
+    )
+    op.add_column(
+        "evolution_agents", sa.Column("db_password", sa.String(255), nullable=True)
+    )

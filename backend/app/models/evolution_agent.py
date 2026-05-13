@@ -1,4 +1,5 @@
 """Per-company Pastel Evolution agent configuration."""
+
 from __future__ import annotations
 
 import uuid

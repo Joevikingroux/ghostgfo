@@ -1,4 +1,5 @@
 """Report retrieval, status polling, and PDF download."""
+
 from __future__ import annotations
 
 import uuid
@@ -10,7 +11,7 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, require_admin, require_staff
+from app.api.deps import get_current_user, require_staff
 from app.core.database import get_db
 from app.models.report import Report
 from app.models.user import User
@@ -23,6 +24,7 @@ class SendEmailBody(BaseModel):
 
 class CustomCommentaryBody(BaseModel):
     narrative_custom: str
+
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -74,14 +76,13 @@ def download_report(
         raise HTTPException(status_code=404, detail="PDF file missing from storage")
 
     company_name = (
-        report.company.name
-        .lower()
-        .replace(" ", "_")
-        .replace("/", "_")[:30]
+        report.company.name.lower().replace(" ", "_").replace("/", "_")[:30]
         if report.company
         else "report"
     )
-    filename = f"ghostcfo_{company_name}_{report.period_year}-{report.period_month:02d}.pdf"
+    filename = (
+        f"ghostcfo_{company_name}_{report.period_year}-{report.period_month:02d}.pdf"
+    )
     return FileResponse(
         path=str(pdf),
         media_type="application/pdf",
@@ -106,7 +107,9 @@ def report_status(
         "email_sent": report.email_sent,
         "payroll_pending": bool(report.payroll_pending),
         "health_score": report.metrics.get("health_score") if report.metrics else None,
-        "health_rating": report.metrics.get("health_rating") if report.metrics else None,
+        "health_rating": report.metrics.get("health_rating")
+        if report.metrics
+        else None,
     }
 
 
@@ -116,10 +119,7 @@ def revenue_trends(
     db: Session = Depends(get_db),
 ) -> list[dict]:
     """Last 12 months of revenue + gross profit for the trend chart."""
-    q = (
-        select(Report)
-        .order_by(Report.period_year.asc(), Report.period_month.asc())
-    )
+    q = select(Report).order_by(Report.period_year.asc(), Report.period_month.asc())
     if user.role != "admin":
         q = q.where(Report.company_id == user.company_id)
 
@@ -128,12 +128,14 @@ def revenue_trends(
     for r in reports:
         if not r.metrics:
             continue
-        result.append({
-            "period_month": r.period_month,
-            "period_year": r.period_year,
-            "revenue": r.metrics.get("revenue_current_month", 0),
-            "gross_profit": r.metrics.get("gross_profit_current", 0),
-        })
+        result.append(
+            {
+                "period_month": r.period_month,
+                "period_year": r.period_year,
+                "revenue": r.metrics.get("revenue_current_month", 0),
+                "gross_profit": r.metrics.get("gross_profit_current", 0),
+            }
+        )
     return result[-12:]  # cap at 12 months
 
 
@@ -148,8 +150,11 @@ def resend_report(
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
     if not report.pdf_path:
-        raise HTTPException(status_code=400, detail="PDF not yet generated — cannot deliver")
+        raise HTTPException(
+            status_code=400, detail="PDF not yet generated — cannot deliver"
+        )
     from app.tasks.deliver_report import deliver_report_task
+
     deliver_report_task.delay(str(report_id))
     return {"status": "queued", "report_id": str(report_id)}
 
@@ -179,7 +184,9 @@ def send_email_manual(
 
     recipient = company.owner_email or company.bookkeeper_email
     if not recipient:
-        raise HTTPException(status_code=400, detail="No email address configured for this company")
+        raise HTTPException(
+            status_code=400, detail="No email address configured for this company"
+        )
 
     narrative = {
         "summary": report.narrative_summary,
@@ -208,7 +215,9 @@ def send_email_manual(
         db.commit()
 
     if not ok:
-        raise HTTPException(status_code=502, detail="Email delivery failed — check server logs")
+        raise HTTPException(
+            status_code=502, detail="Email delivery failed — check server logs"
+        )
 
     all_to = [recipient] + extra
     return {"ok": True, "to": all_to}

@@ -11,6 +11,7 @@ What it does:
 
 Security: requires SSH / physical access to the server — no API endpoint.
 """
+
 from __future__ import annotations
 
 import sys
@@ -36,7 +37,7 @@ def main() -> None:
             print(f"ERROR: No user found with email '{email}'")
             sys.exit(1)
 
-        print(f"\nUser found:")
+        print("\nUser found:")
         print(f"  Email : {user.email}")
         print(f"  Name  : {user.full_name or '(none)'}")
         print(f"  Role  : {user.role}")

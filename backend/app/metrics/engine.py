@@ -4,6 +4,7 @@ Every metric the report needs (per CLAUDE.md spec) is produced here. The
 output dict is what gets stored in `reports.metrics` JSONB and what the LLM
 narrative + PDF templates render against.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -129,9 +130,7 @@ def _health_score(m: dict[str, Any]) -> dict[str, Any]:
         )
     elif m["debtors_health"] == "warning":
         score -= 10
-        flags.append(
-            f"{m['overdue_invoices_count']} invoice(s) overdue 60+ days"
-        )
+        flags.append(f"{m['overdue_invoices_count']} invoice(s) overdue 60+ days")
 
     # Cash (-25 max)
     if m["cash_health"] == "critical":

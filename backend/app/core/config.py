@@ -1,11 +1,11 @@
 """Application settings loaded from environment / .env file."""
+
 from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -40,7 +40,6 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 1200
     llm_timeout_seconds: int = 60
 
-
     # Email (Resend — resend.com)
     resend_api_key: str = ""
     from_email: str = "reports@ghostcfo.numbers10.co.za"
@@ -57,7 +56,7 @@ class Settings(BaseSettings):
     payfast_merchant_id: str = ""
     payfast_merchant_key: str = ""
     payfast_passphrase: str = ""
-    payfast_sandbox: bool = True   # Set False in production after testing
+    payfast_sandbox: bool = True  # Set False in production after testing
 
     # Payroll
     payroll_db_enabled: bool = False
@@ -66,9 +65,7 @@ class Settings(BaseSettings):
     # Branding
     brand_primary: str = "#2DD4BF"
     brand_secondary: str = "#06B6D4"
-    brand_footer: str = (
-        "Powered by Numbers10 Technology Solutions | numbers10.co.za"
-    )
+    brand_footer: str = "Powered by Numbers10 Technology Solutions | numbers10.co.za"
 
     # JWT
     jwt_algorithm: str = "HS256"

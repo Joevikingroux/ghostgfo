@@ -1,4 +1,5 @@
 """Debtor metrics: aging, collection days, health."""
+
 from __future__ import annotations
 
 from typing import Any

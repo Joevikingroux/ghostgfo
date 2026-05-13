@@ -1,4 +1,5 @@
 """Pastel data ingestion layer."""
+
 from app.parsers.partner_balance import BalanceSheetParser
 from app.parsers.partner_creditors import CreditorAgeParser
 from app.parsers.partner_debtors import DebtorAgeParser

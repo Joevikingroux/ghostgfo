@@ -1,4 +1,5 @@
 """Language / tone configuration per company."""
+
 from __future__ import annotations
 
 LANG_EN = "en"

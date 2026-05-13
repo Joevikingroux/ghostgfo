@@ -4,6 +4,7 @@ Per-employee row:
     Employee Code | Employee Name | Leave Type | Balance Days |
     Daily Rate | Liability (Rand)
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -58,9 +59,7 @@ class LeaveLiabilityParser(BaseParser):
             days = to_number(raw.get(col_days)) if col_days else 0.0
             rate = to_number(raw.get(col_rate)) if col_rate else 0.0
             liability = (
-                to_number(raw.get(col_liability))
-                if col_liability
-                else days * rate
+                to_number(raw.get(col_liability)) if col_liability else days * rate
             )
 
             rows.append(

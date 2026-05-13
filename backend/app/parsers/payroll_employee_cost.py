@@ -4,6 +4,7 @@ Per-employee row:
     Employee Code | Employee Name | Basic Salary | Overtime | Bonus |
     Total Gross | Employer UIF | Employer SDL | Total Employer Cost
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -60,16 +61,12 @@ class EmployeeCostParser(BaseParser):
             overtime = to_number(raw.get(col_overtime)) if col_overtime else 0.0
             bonus = to_number(raw.get(col_bonus)) if col_bonus else 0.0
             gross = (
-                to_number(raw.get(col_gross))
-                if col_gross
-                else basic + overtime + bonus
+                to_number(raw.get(col_gross)) if col_gross else basic + overtime + bonus
             )
             uif_er = to_number(raw.get(col_uif_er)) if col_uif_er else gross * 0.01
             sdl = to_number(raw.get(col_sdl)) if col_sdl else gross * 0.01
             total_cost = (
-                to_number(raw.get(col_total))
-                if col_total
-                else gross + uif_er + sdl
+                to_number(raw.get(col_total)) if col_total else gross + uif_er + sdl
             )
 
             row = {

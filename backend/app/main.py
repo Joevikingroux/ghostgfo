@@ -1,4 +1,5 @@
 """FastAPI application entry point."""
+
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
@@ -7,7 +8,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
-from app.api import admin_overview, agent, auth, companies, payments, reports, uploads, users
+from app.api import (
+    admin_overview,
+    agent,
+    auth,
+    companies,
+    payments,
+    reports,
+    uploads,
+    users,
+)
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
 
@@ -19,11 +29,17 @@ log = get_logger(__name__)
 async def lifespan(app: FastAPI):
     if settings.app_env == "production":
         if settings.secret_key in ("", "change-me"):
-            raise SystemExit("FATAL: SECRET_KEY is not set. Configure it in .env before starting.")
+            raise SystemExit(
+                "FATAL: SECRET_KEY is not set. Configure it in .env before starting."
+            )
         if settings.agent_encryption_key in ("", "change-me-32-bytes"):
-            raise SystemExit("FATAL: AGENT_ENCRYPTION_KEY is not set. Configure it in .env before starting.")
+            raise SystemExit(
+                "FATAL: AGENT_ENCRYPTION_KEY is not set. Configure it in .env before starting."
+            )
         if settings.payfast_sandbox:
-            raise SystemExit("FATAL: PAYFAST_SANDBOX=True in production. Set PAYFAST_SANDBOX=False in .env.")
+            raise SystemExit(
+                "FATAL: PAYFAST_SANDBOX=True in production. Set PAYFAST_SANDBOX=False in .env."
+            )
     log.info("ghostcfo.startup", env=settings.app_env, version=__version__)
     yield
     log.info("ghostcfo.shutdown")

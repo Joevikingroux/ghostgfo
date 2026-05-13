@@ -1,4 +1,5 @@
 """Email delivery via Resend (resend.com) — sends the monthly report PDF as an attachment."""
+
 from __future__ import annotations
 
 import base64
@@ -44,7 +45,10 @@ def send_report_email(
     try:
         import resend
     except ImportError:
-        log.error("email.import_error", msg="resend package not installed — run: pip install resend")
+        log.error(
+            "email.import_error",
+            msg="resend package not installed — run: pip install resend",
+        )
         return False
 
     resend.api_key = settings.resend_api_key
@@ -75,7 +79,12 @@ def send_report_email(
             ("Revenue", narrative.get("revenue")),
             ("Costs", narrative.get("costs")),
             ("Customers (Debtors)", narrative.get("debtors")),
-            ("Payroll & Staff Costs", narrative.get("payroll") if metrics.get("payroll_gross_total") else None),
+            (
+                "Payroll & Staff Costs",
+                narrative.get("payroll")
+                if metrics.get("payroll_gross_total")
+                else None,
+            ),
             ("Cash Position", narrative.get("cash")),
         ],
         narrative_actions=narrative.get("actions"),
@@ -87,22 +96,26 @@ def send_report_email(
     subject = f"Ghost CFO — {company_name} — {month_name} {year} Financial Report"
 
     pdf_bytes = Path(pdf_path).read_bytes()
-    pdf_filename = f"ghostcfo_{company_name.lower().replace(' ', '_')[:30]}_{year}-{month:02d}.pdf"
+    pdf_filename = (
+        f"ghostcfo_{company_name.lower().replace(' ', '_')[:30]}_{year}-{month:02d}.pdf"
+    )
 
     all_to = [to_email] + (extra_to or [])
     try:
-        response = resend.Emails.send({
-            "from": f"{settings.from_name} <{settings.from_email}>",
-            "to": all_to,
-            "subject": subject,
-            "html": html_body,
-            "attachments": [
-                {
-                    "filename": pdf_filename,
-                    "content": base64.b64encode(pdf_bytes).decode(),
-                }
-            ],
-        })
+        response = resend.Emails.send(
+            {
+                "from": f"{settings.from_name} <{settings.from_email}>",
+                "to": all_to,
+                "subject": subject,
+                "html": html_body,
+                "attachments": [
+                    {
+                        "filename": pdf_filename,
+                        "content": base64.b64encode(pdf_bytes).decode(),
+                    }
+                ],
+            }
+        )
         log.info("email.sent", to=all_to, id=response.get("id"), company=company_name)
         return True
     except Exception as exc:
@@ -140,13 +153,20 @@ def send_payroll_reminder_email(
     )
     subject = f"Ghost CFO — {company_name} — Upload Payroll to Complete {month_name} {period_year} Report"
     try:
-        response = resend.Emails.send({
-            "from": f"{settings.from_name} <{settings.from_email}>",
-            "to": [to_email],
-            "subject": subject,
-            "html": html_body,
-        })
-        log.info("payroll_reminder.sent", to=to_email, id=response.get("id"), company=company_name)
+        response = resend.Emails.send(
+            {
+                "from": f"{settings.from_name} <{settings.from_email}>",
+                "to": [to_email],
+                "subject": subject,
+                "html": html_body,
+            }
+        )
+        log.info(
+            "payroll_reminder.sent",
+            to=to_email,
+            id=response.get("id"),
+            company=company_name,
+        )
         return True
     except Exception as exc:
         log.error("payroll_reminder.failed", to=to_email, error=str(exc))
@@ -184,13 +204,20 @@ def send_debtor_alert_email(
     )
     subject = f"Ghost CFO — {company_name} — Overdue Invoice Alert"
     try:
-        response = resend.Emails.send({
-            "from": f"{settings.from_name} <{settings.from_email}>",
-            "to": [to_email],
-            "subject": subject,
-            "html": html_body,
-        })
-        log.info("debtor_alert.sent", to=to_email, id=response.get("id"), company=company_name)
+        response = resend.Emails.send(
+            {
+                "from": f"{settings.from_name} <{settings.from_email}>",
+                "to": [to_email],
+                "subject": subject,
+                "html": html_body,
+            }
+        )
+        log.info(
+            "debtor_alert.sent",
+            to=to_email,
+            id=response.get("id"),
+            company=company_name,
+        )
         return True
     except Exception as exc:
         log.error("debtor_alert.failed", to=to_email, error=str(exc))
@@ -239,13 +266,20 @@ def send_weekly_pulse_email(
     )
     subject = f"Ghost CFO — {company_name} — Weekly Cash Pulse"
     try:
-        response = resend.Emails.send({
-            "from": f"{settings.from_name} <{settings.from_email}>",
-            "to": [to_email],
-            "subject": subject,
-            "html": html_body,
-        })
-        log.info("weekly_pulse.sent", to=to_email, id=response.get("id"), company=company_name)
+        response = resend.Emails.send(
+            {
+                "from": f"{settings.from_name} <{settings.from_email}>",
+                "to": [to_email],
+                "subject": subject,
+                "html": html_body,
+            }
+        )
+        log.info(
+            "weekly_pulse.sent",
+            to=to_email,
+            id=response.get("id"),
+            company=company_name,
+        )
         return True
     except Exception as exc:
         log.error("weekly_pulse.failed", to=to_email, error=str(exc))
@@ -279,12 +313,14 @@ def send_temp_password_email(
         f"<p style='color:#888;font-size:12px'>Ghost CFO — powered by Numbers10 Technology Solutions</p>"
     )
     try:
-        response = resend.Emails.send({
-            "from": f"{settings.from_name} <{settings.from_email}>",
-            "to": [to_email],
-            "subject": "Ghost CFO — your temporary password",
-            "html": html_body,
-        })
+        response = resend.Emails.send(
+            {
+                "from": f"{settings.from_name} <{settings.from_email}>",
+                "to": [to_email],
+                "subject": "Ghost CFO — your temporary password",
+                "html": html_body,
+            }
+        )
         log.info("temp_password.sent", to=to_email, id=response.get("id"))
         return True
     except Exception as exc:
@@ -357,12 +393,14 @@ def _send_auth_email(
     )
 
     try:
-        response = resend.Emails.send({
-            "from": f"{settings.from_name} <{settings.from_email}>",
-            "to": [to_email],
-            "subject": subject,
-            "html": html_body,
-        })
+        response = resend.Emails.send(
+            {
+                "from": f"{settings.from_name} <{settings.from_email}>",
+                "to": [to_email],
+                "subject": subject,
+                "html": html_body,
+            }
+        )
         log.info("auth_email.sent", to=to_email, id=response.get("id"))
         return True
     except Exception as exc:

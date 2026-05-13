@@ -11,6 +11,7 @@ Pastel CSV/Excel exports vary by version, locale and report format:
 
 This module gives every parser the same toolkit.
 """
+
 from __future__ import annotations
 
 import re

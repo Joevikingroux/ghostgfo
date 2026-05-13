@@ -1,4 +1,5 @@
 """Generated monthly report ORM model."""
+
 from __future__ import annotations
 
 import uuid
@@ -40,9 +41,7 @@ class Report(Base, UUIDPK, Timestamps):
     period_month: Mapped[int] = mapped_column(Integer, nullable=False)
     period_year: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    metrics: Mapped[dict[str, Any]] = mapped_column(
-        JSONB, nullable=False, default=dict
-    )
+    metrics: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
 
     narrative_summary: Mapped[str | None] = mapped_column(Text)
     narrative_revenue: Mapped[str | None] = mapped_column(Text)
@@ -51,8 +50,12 @@ class Report(Base, UUIDPK, Timestamps):
     narrative_payroll: Mapped[str | None] = mapped_column(Text)
     narrative_cash: Mapped[str | None] = mapped_column(Text)
     narrative_actions: Mapped[str | None] = mapped_column(Text)
-    narrative_trend: Mapped[str | None] = mapped_column(Text)     # Premium: YoY + quarterly
-    narrative_custom: Mapped[str | None] = mapped_column(Text)    # Premium: admin commentary
+    narrative_trend: Mapped[str | None] = mapped_column(
+        Text
+    )  # Premium: YoY + quarterly
+    narrative_custom: Mapped[str | None] = mapped_column(
+        Text
+    )  # Premium: admin commentary
 
     pdf_path: Mapped[str | None] = mapped_column(Text)
 
@@ -60,7 +63,9 @@ class Report(Base, UUIDPK, Timestamps):
     email_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     telegram_sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     telegram_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    payroll_pending: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    payroll_pending: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
 
     generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

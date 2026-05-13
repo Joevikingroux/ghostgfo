@@ -3,6 +3,7 @@
 Every prompt receives a ``metrics`` dict formatted as plain text — never raw
 JSON. This keeps prompts compact and prevents the model from echoing keys.
 """
+
 from __future__ import annotations
 
 from typing import Any

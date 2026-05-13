@@ -1,4 +1,5 @@
 """Structured logging configuration. Never logs raw client financial values."""
+
 from __future__ import annotations
 
 import logging

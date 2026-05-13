@@ -1,4 +1,5 @@
 """Company (SMB client) ORM model."""
+
 from __future__ import annotations
 
 from datetime import date
@@ -31,14 +32,14 @@ class Company(Base, UUIDPK, Timestamps):
 
     # PayFast subscription
     payfast_token: Mapped[str | None] = mapped_column(Text)
-    subscription_status: Mapped[str] = mapped_column(String(32), default="inactive", nullable=False)
+    subscription_status: Mapped[str] = mapped_column(
+        String(32), default="inactive", nullable=False
+    )
 
     data_source: Mapped[str] = mapped_column(
         String(32), default="partner", nullable=False
     )
-    language: Mapped[str] = mapped_column(
-        String(8), default="en", nullable=False
-    )
+    language: Mapped[str] = mapped_column(String(8), default="en", nullable=False)
 
     users = relationship("User", back_populates="company", cascade="all, delete-orphan")
     uploads = relationship(

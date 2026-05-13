@@ -1,4 +1,5 @@
 """Auth endpoints: login, 2FA, password reset, logout, me."""
+
 from __future__ import annotations
 
 import uuid
@@ -59,6 +60,7 @@ def _set_auth_cookie(response: Response, token: str) -> None:
 # Login / logout
 # ---------------------------------------------------------------------------
 
+
 @router.post("/login", response_model=TokenResponse)
 def login(body: LoginRequest, response: Response, db: Session = Depends(get_db)):
     user = db.execute(
@@ -66,13 +68,18 @@ def login(body: LoginRequest, response: Response, db: Session = Depends(get_db))
     ).scalar_one_or_none()
 
     if not user or not verify_password(body.password, user.password_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+        )
 
     if user.totp_enabled:
         partial = create_partial_token(str(user.id))
         return TokenResponse(requires_2fa=True, partial_token=partial, access_token="")
 
-    token = create_access_token(str(user.id), extra={"role": user.role, "company_id": str(user.company_id)})
+    token = create_access_token(
+        str(user.id), extra={"role": user.role, "company_id": str(user.company_id)}
+    )
     _set_auth_cookie(response, token)
     return TokenResponse(access_token=token)
 
@@ -100,8 +107,11 @@ def me(user: User = Depends(get_current_user)):
 # 2FA flow
 # ---------------------------------------------------------------------------
 
+
 @router.post("/2fa/verify", response_model=TokenResponse)
-def verify_2fa(body: TwoFAVerifyRequest, response: Response, db: Session = Depends(get_db)):
+def verify_2fa(
+    body: TwoFAVerifyRequest, response: Response, db: Session = Depends(get_db)
+):
     try:
         payload = decode_token(body.partial_token)
     except ValueError:
@@ -117,7 +127,9 @@ def verify_2fa(body: TwoFAVerifyRequest, response: Response, db: Session = Depen
     if not verify_totp(user.totp_secret, body.code.strip()):
         raise HTTPException(status_code=401, detail="Incorrect authentication code")
 
-    token = create_access_token(str(user.id), extra={"role": user.role, "company_id": str(user.company_id)})
+    token = create_access_token(
+        str(user.id), extra={"role": user.role, "company_id": str(user.company_id)}
+    )
     _set_auth_cookie(response, token)
     return TokenResponse(access_token=token)
 
@@ -134,10 +146,16 @@ def setup_2fa(user: User = Depends(get_current_user)):
 
 
 @router.post("/2fa/confirm")
-def confirm_2fa(body: TwoFAConfirmRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def confirm_2fa(
+    body: TwoFAConfirmRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Verify the TOTP code against the provided secret, then enable 2FA."""
     if not verify_totp(body.secret, body.code.strip()):
-        raise HTTPException(status_code=400, detail="Incorrect authentication code — try again")
+        raise HTTPException(
+            status_code=400, detail="Incorrect authentication code — try again"
+        )
 
     user.totp_secret = body.secret
     user.totp_enabled = True
@@ -167,6 +185,7 @@ def disable_own_2fa(
 # ---------------------------------------------------------------------------
 # Password management
 # ---------------------------------------------------------------------------
+
 
 @router.post("/change-password")
 def change_password(
@@ -217,7 +236,9 @@ def reset_password_confirm(body: ResetPasswordConfirm, db: Session = Depends(get
         or not user.password_reset_expires
         or user.password_reset_expires < datetime.now(timezone.utc)
     ):
-        raise HTTPException(status_code=400, detail="This link is invalid or has expired.")
+        raise HTTPException(
+            status_code=400, detail="This link is invalid or has expired."
+        )
 
     user.password_hash = hash_password(body.new_password)
     user.must_change_password = False
@@ -231,6 +252,7 @@ def reset_password_confirm(body: ResetPasswordConfirm, db: Session = Depends(get
 # ---------------------------------------------------------------------------
 # Admin: reset another user's 2FA
 # ---------------------------------------------------------------------------
+
 
 @router.post("/2fa/reset/{user_id}")
 def admin_reset_2fa(

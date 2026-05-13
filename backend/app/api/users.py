@@ -1,4 +1,5 @@
 """User management endpoints."""
+
 from __future__ import annotations
 
 import secrets
@@ -12,7 +13,6 @@ from sqlalchemy.orm import Session, joinedload
 from app.api.deps import get_current_user, require_admin
 from app.core.database import get_db
 from app.core.security import hash_password
-from app.models.company import Company
 from app.models.user import User
 from app.schemas.user import UserAdminOut, UserCreate, UserOut, UserUpdate
 
@@ -20,6 +20,7 @@ from app.schemas.user import UserAdminOut, UserCreate, UserOut, UserUpdate
 def _generate_temp_password() -> str:
     alphabet = string.ascii_letters + string.digits
     return "".join(secrets.choice(alphabet) for _ in range(14))
+
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -30,11 +31,7 @@ def list_users(
     db: Session = Depends(get_db),
 ):
     rows = (
-        db.execute(
-            select(User)
-            .options(joinedload(User.company))
-            .order_by(User.email)
-        )
+        db.execute(select(User).options(joinedload(User.company)).order_by(User.email))
         .scalars()
         .all()
     )
@@ -66,7 +63,9 @@ def create_user(
         select(User).where(User.email == body.email)
     ).scalar_one_or_none()
     if existing:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
+        )
 
     temp_pw = body.password or _generate_temp_password()
     new_user = User(
@@ -82,6 +81,7 @@ def create_user(
     db.refresh(new_user)
 
     from app.reports.email import send_temp_password_email
+
     send_temp_password_email(
         to_email=new_user.email,
         to_name=new_user.full_name or new_user.email,
@@ -108,7 +108,9 @@ def update_user(
         raise HTTPException(status_code=404, detail="User not found")
 
     if target.role == "admin":
-        raise HTTPException(status_code=403, detail="Admin user details cannot be changed here")
+        raise HTTPException(
+            status_code=403, detail="Admin user details cannot be changed here"
+        )
 
     if body.email is not None:
         conflict = db.execute(
@@ -196,9 +198,14 @@ def admin_reset_password(
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
     if target.role == "admin":
-        raise HTTPException(status_code=403, detail="Cannot reset password for admin users")
+        raise HTTPException(
+            status_code=403, detail="Cannot reset password for admin users"
+        )
     if str(target.id) == str(caller.id):
-        raise HTTPException(status_code=400, detail="Use the change-password flow to update your own password")
+        raise HTTPException(
+            status_code=400,
+            detail="Use the change-password flow to update your own password",
+        )
 
     temp_pw = _generate_temp_password()
     target.password_hash = hash_password(temp_pw)
@@ -206,6 +213,7 @@ def admin_reset_password(
     db.commit()
 
     from app.reports.email import send_temp_password_email
+
     sent = send_temp_password_email(
         to_email=target.email,
         to_name=target.full_name or target.email,

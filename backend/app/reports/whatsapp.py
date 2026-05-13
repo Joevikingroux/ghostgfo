@@ -6,6 +6,7 @@ sends a free-form text message valid within the 24-hour conversation window.
 For cold delivery, a pre-approved template should be registered; that is
 handled in a future phase.
 """
+
 from __future__ import annotations
 
 import calendar

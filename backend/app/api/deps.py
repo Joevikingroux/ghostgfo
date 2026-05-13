@@ -1,4 +1,5 @@
 """Shared FastAPI dependencies."""
+
 from __future__ import annotations
 
 from fastapi import Cookie, Depends, Header, HTTPException, status
@@ -56,7 +57,9 @@ def require_admin(user: User = Depends(get_current_user)) -> User:
 def require_staff(user: User = Depends(get_current_user)) -> User:
     """Allow both 'admin' and 'tech' roles."""
     if user.role not in ("admin", "tech"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff access required")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Staff access required"
+        )
     return user
 
 
@@ -68,5 +71,7 @@ def require_company_access(
     if user.role == "admin":
         return user
     if str(user.company_id) != company_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
+        )
     return user

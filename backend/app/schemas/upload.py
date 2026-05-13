@@ -1,4 +1,5 @@
 """Upload and report schemas."""
+
 from __future__ import annotations
 
 import uuid

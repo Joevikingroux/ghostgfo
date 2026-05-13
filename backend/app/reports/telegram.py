@@ -4,6 +4,7 @@ Sends the monthly report summary as a plain text message to the business
 owner's Telegram chat. The owner must message the bot first to obtain their
 chat_id — stored on the Company record as owner_telegram.
 """
+
 from __future__ import annotations
 
 import calendar
@@ -103,14 +104,19 @@ def send_telegram_message(
 
     try:
         with httpx.Client(timeout=30) as client:
-            resp = client.post(url, json={
-                "chat_id": chat_id,
-                "text": text,
-                "parse_mode": "Markdown",
-            })
+            resp = client.post(
+                url,
+                json={
+                    "chat_id": chat_id,
+                    "text": text,
+                    "parse_mode": "Markdown",
+                },
+            )
 
         if resp.status_code == 200:
-            log.info("telegram.sent", chat_id=chat_id[:4] + "****", company=company_name)
+            log.info(
+                "telegram.sent", chat_id=chat_id[:4] + "****", company=company_name
+            )
             return True
 
         log.warning(
