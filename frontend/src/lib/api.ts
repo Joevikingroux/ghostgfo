@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { AdminOverview, Company, CompanyAgentStatus, Metrics, Report, ReportListItem, Upload, User, UserAdminView } from "./types";
+import type { AdminOverview, ChangePlanResponse, Company, CompanyAgentStatus, Metrics, Report, ReportListItem, SubscriptionInfo, Upload, User, UserAdminView } from "./types";
 
 const client = axios.create({
   baseURL: "/api",
@@ -142,6 +142,18 @@ export const getMyAgentStatus = () =>
 
 export const requestCompanySync = (month: number, year: number) =>
   client.post<{ ok: boolean }>("/agent/company-sync", { month, year });
+
+// ---- Subscription ----
+export const getSubscription = () =>
+  client.get<SubscriptionInfo>("/payments/subscription");
+
+export const changePlan = (new_plan: string) =>
+  client.post<ChangePlanResponse>("/payments/subscription/change", { new_plan });
+
+export const cancelSubscription = () =>
+  client.post<{ ok: boolean; message: string; access_until: string }>(
+    "/payments/subscription/cancel"
+  );
 
 // ---- Admin overview ----
 export const getAdminOverview = () => client.get<AdminOverview>("/admin/overview");

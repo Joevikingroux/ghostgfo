@@ -19,6 +19,8 @@ const CLIENT_NAV = [
   { to: "/settings", label: "Settings" },
 ];
 
+const OWNER_EXTRA_NAV = [{ to: "/subscription", label: "Subscription" }];
+
 const INACTIVITY_MS = 5 * 60 * 1000; // 5 minutes
 
 // ---------------------------------------------------------------------------
@@ -178,7 +180,11 @@ export default function Layout() {
   };
 
   const isStaff = user?.role === "admin" || user?.role === "tech";
-  const nav = isStaff ? ADMIN_NAV : CLIENT_NAV;
+  const nav = isStaff
+    ? ADMIN_NAV
+    : user?.role === "owner"
+    ? [...CLIENT_NAV, ...OWNER_EXTRA_NAV]
+    : CLIENT_NAV;
 
   return (
     <div className="min-h-screen flex flex-col bg-black">

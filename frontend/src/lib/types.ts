@@ -228,6 +228,25 @@ export interface ServiceCheck {
   message: string;
 }
 
+export interface SubscriptionInfo {
+  plan: string;
+  plan_price: number;
+  subscription_status: string;
+  plan_start_date: string | null;
+  next_billing_date: string | null;
+  next_billing_amount: number | null;
+  days_remaining_in_cycle: number | null;
+  has_payfast_token: boolean;
+}
+
+export interface ChangePlanResponse {
+  ok: boolean;
+  message: string;
+  prorated_amount: number | null;
+  new_plan: string;
+  effective_date: string;
+}
+
 export interface SystemStatus {
   database: ServiceCheck;
   redis: ServiceCheck;

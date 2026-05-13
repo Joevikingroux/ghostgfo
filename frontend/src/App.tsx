@@ -15,6 +15,7 @@ import SettingsPage from "@/pages/Settings";
 import AdminPage from "@/pages/Admin";
 import AdminDashboard from "@/pages/AdminDashboard";
 import SetupPage from "@/pages/Setup";
+import SubscriptionPage from "@/pages/Subscription";
 import Layout from "@/components/Layout";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -86,6 +87,7 @@ export default function App() {
           <Route path="/upload" element={<UploadPage />} />
           <Route path="/reports" element={<ReportsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/subscription" element={<SubscriptionPage />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/manage" element={<AdminPage />} />
         </Route>

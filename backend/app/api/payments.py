@@ -1,9 +1,12 @@
 """PayFast payment and subscription endpoints.
 
-POST /api/payments/initiate   — create company + user, return PayFast form data
-POST /api/payments/notify     — ITN webhook from PayFast (activates subscription)
-GET  /api/payments/success    — redirect after successful payment
-GET  /api/payments/cancel     — redirect after cancelled payment
+POST /api/payments/initiate              — create company + user, return PayFast form data
+POST /api/payments/notify                — ITN webhook from PayFast (activates subscription)
+GET  /api/payments/success               — redirect after successful payment
+GET  /api/payments/cancel                — redirect after cancelled payment
+GET  /api/payments/subscription          — get current subscription info (owner only)
+POST /api/payments/subscription/change   — upgrade or downgrade plan with proration
+POST /api/payments/subscription/cancel   — cancel subscription via PayFast API
 """
 from __future__ import annotations
 
@@ -11,7 +14,7 @@ import hashlib
 import logging
 import secrets
 import urllib.parse
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -71,6 +74,337 @@ def _sign(data: dict[str, Any]) -> str:
     param_string = _build_param_string(data)
     log.debug("payfast.signing param_string=%s", param_string)
     return hashlib.md5(param_string.encode()).hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# PayFast Subscription API helpers
+# ---------------------------------------------------------------------------
+
+def _payfast_api_base() -> str:
+    return (
+        "https://api.sandbox.payfast.co.za"
+        if settings.payfast_sandbox
+        else "https://api.payfast.co.za"
+    )
+
+
+def _payfast_api_headers() -> dict[str, str]:
+    """Generate authenticated headers for the PayFast REST API."""
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+    params = {
+        "merchant-id": settings.payfast_merchant_id,
+        "passphrase": settings.payfast_passphrase,
+        "timestamp": timestamp,
+        "version": "v1",
+    }
+    parts = [
+        f"{k}={urllib.parse.quote_plus(str(v))}"
+        for k, v in sorted(params.items())
+    ]
+    signature = hashlib.md5("&".join(parts).encode()).hexdigest()
+    return {
+        "merchant-id": settings.payfast_merchant_id,
+        "version": "v1",
+        "timestamp": timestamp,
+        "signature": signature,
+    }
+
+
+def _pf_fetch(token: str) -> dict | None:
+    """Fetch subscription details from PayFast."""
+    try:
+        params = {"testing": "true"} if settings.payfast_sandbox else {}
+        resp = httpx.get(
+            f"{_payfast_api_base()}/subscriptions/{token}/fetch",
+            headers=_payfast_api_headers(),
+            params=params,
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            return resp.json()
+        log.warning("pf.fetch status=%s body=%s", resp.status_code, resp.text[:300])
+    except Exception as exc:
+        log.warning("pf.fetch error: %s", exc)
+    return None
+
+
+def _pf_update(token: str, new_amount: int) -> bool:
+    """Update the recurring amount on a PayFast subscription (amount in rands)."""
+    try:
+        params = {"testing": "true"} if settings.payfast_sandbox else {}
+        resp = httpx.put(
+            f"{_payfast_api_base()}/subscriptions/{token}/update",
+            headers=_payfast_api_headers(),
+            params=params,
+            json={"amount": f"{new_amount:.2f}", "cycles": 0},
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            return True
+        log.warning("pf.update status=%s body=%s", resp.status_code, resp.text[:300])
+    except Exception as exc:
+        log.warning("pf.update error: %s", exc)
+    return False
+
+
+def _pf_cancel(token: str) -> bool:
+    """Cancel a PayFast subscription."""
+    try:
+        params = {"testing": "true"} if settings.payfast_sandbox else {}
+        resp = httpx.put(
+            f"{_payfast_api_base()}/subscriptions/{token}/cancel",
+            headers=_payfast_api_headers(),
+            params=params,
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            return True
+        log.warning("pf.cancel status=%s body=%s", resp.status_code, resp.text[:300])
+    except Exception as exc:
+        log.warning("pf.cancel error: %s", exc)
+    return False
+
+
+def _pf_adhoc(token: str, amount: float, item_name: str, m_payment_id: str) -> bool:
+    """Charge an ad-hoc amount against a PayFast subscription (amount in rands)."""
+    try:
+        params = {"testing": "true"} if settings.payfast_sandbox else {}
+        resp = httpx.post(
+            f"{_payfast_api_base()}/subscriptions/{token}/adhoc",
+            headers=_payfast_api_headers(),
+            params=params,
+            json={
+                "amount": f"{amount:.2f}",
+                "item_name": item_name[:100],
+                "m_payment_id": m_payment_id,
+            },
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            return True
+        log.warning("pf.adhoc status=%s body=%s", resp.status_code, resp.text[:300])
+    except Exception as exc:
+        log.warning("pf.adhoc error: %s", exc)
+    return False
+
+
+def _billing_cycle(plan_start_date: date) -> dict:
+    """Calculate current billing cycle info from the plan start date."""
+    today = date.today()
+    days_elapsed = (today - plan_start_date).days
+    completed_cycles = days_elapsed // 30
+    days_into_cycle = days_elapsed % 30
+    days_remaining = 30 - days_into_cycle
+    next_billing_date = plan_start_date + timedelta(days=(completed_cycles + 1) * 30)
+    return {
+        "days_remaining": days_remaining,
+        "days_into_cycle": days_into_cycle,
+        "next_billing_date": next_billing_date,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Subscription management models
+# ---------------------------------------------------------------------------
+
+class SubscriptionInfo(BaseModel):
+    plan: str
+    plan_price: int
+    subscription_status: str
+    plan_start_date: date | None
+    next_billing_date: date | None
+    next_billing_amount: float | None
+    days_remaining_in_cycle: int | None
+    has_payfast_token: bool
+
+
+class ChangePlanRequest(BaseModel):
+    new_plan: str
+
+
+class ChangePlanResponse(BaseModel):
+    ok: bool
+    message: str
+    prorated_amount: float | None
+    new_plan: str
+    effective_date: str
+
+
+# ---------------------------------------------------------------------------
+# Subscription endpoints (owner only)
+# ---------------------------------------------------------------------------
+
+from app.api.deps import get_current_user  # noqa: E402
+
+
+def _require_owner(user: Any) -> None:
+    if user.role not in {"owner", "admin"}:
+        raise HTTPException(status_code=403, detail="Not authorised")
+
+
+@router.get("/subscription", response_model=SubscriptionInfo)
+def subscription_info(
+    user: Any = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> SubscriptionInfo:
+    """Return the current subscription details for the authenticated owner."""
+    from app.models.company import Company
+
+    _require_owner(user)
+    if not user.company_id:
+        raise HTTPException(status_code=404, detail="No company associated with this account")
+
+    company = db.get(Company, user.company_id)
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    billing = _billing_cycle(company.plan_start_date) if company.plan_start_date else None
+    plan_price = PLAN_PRICES.get(company.plan, 0)
+
+    return SubscriptionInfo(
+        plan=company.plan,
+        plan_price=plan_price,
+        subscription_status=company.subscription_status,
+        plan_start_date=company.plan_start_date,
+        next_billing_date=billing["next_billing_date"] if billing else None,
+        next_billing_amount=float(plan_price),
+        days_remaining_in_cycle=billing["days_remaining"] if billing else None,
+        has_payfast_token=bool(company.payfast_token),
+    )
+
+
+@router.post("/subscription/change", response_model=ChangePlanResponse)
+def change_plan(
+    body: ChangePlanRequest,
+    user: Any = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ChangePlanResponse:
+    """Upgrade or downgrade plan. Upgrades are prorated for remaining days."""
+    from app.models.company import Company
+
+    _require_owner(user)
+    if body.new_plan not in PLAN_PRICES:
+        raise HTTPException(status_code=400, detail=f"Unknown plan: {body.new_plan}")
+
+    if not user.company_id:
+        raise HTTPException(status_code=404, detail="No company associated with this account")
+
+    company = db.get(Company, user.company_id)
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    if company.plan == body.new_plan:
+        raise HTTPException(status_code=400, detail="Already on this plan")
+
+    if not company.payfast_token:
+        raise HTTPException(
+            status_code=400,
+            detail="No active PayFast subscription token found. Contact support.",
+        )
+
+    old_price = PLAN_PRICES[company.plan]
+    new_price = PLAN_PRICES[body.new_plan]
+    is_upgrade = new_price > old_price
+
+    billing = _billing_cycle(company.plan_start_date) if company.plan_start_date else None
+    days_remaining = billing["days_remaining"] if billing else 30
+    next_billing_date = billing["next_billing_date"] if billing else (date.today() + timedelta(days=30))
+
+    prorated_amount: float | None = None
+    effective_date: str
+
+    if is_upgrade:
+        prorated_amount = round((new_price / 30) * days_remaining, 2)
+
+        adhoc_ok = _pf_adhoc(
+            token=company.payfast_token,
+            amount=prorated_amount,
+            item_name=f"Upgrade to {PLAN_NAMES[body.new_plan]} — {days_remaining} days",
+            m_payment_id=str(company.id),
+        )
+        if not adhoc_ok:
+            raise HTTPException(
+                status_code=502,
+                detail="PayFast could not process the prorated charge. Please try again.",
+            )
+
+        _pf_update(company.payfast_token, new_price)
+        effective_date = date.today().isoformat()
+        message = (
+            f"Your plan has been upgraded to {body.new_plan.title()}. "
+            f"A prorated charge of R{prorated_amount:.2f} was processed for the "
+            f"remaining {days_remaining} days of your current billing cycle. "
+            f"From {next_billing_date.isoformat()} you will be billed R{new_price}/month."
+        )
+    else:
+        _pf_update(company.payfast_token, new_price)
+        effective_date = next_billing_date.isoformat()
+        message = (
+            f"Your plan will be changed to {body.new_plan.title()} (R{new_price}/month) "
+            f"at your next billing date on {next_billing_date.isoformat()}."
+        )
+
+    company.plan = body.new_plan
+    db.commit()
+
+    log.info(
+        "subscription.change company=%s old=%s new=%s upgrade=%s prorated=%s",
+        company.id, old_price, new_price, is_upgrade, prorated_amount,
+    )
+
+    return ChangePlanResponse(
+        ok=True,
+        message=message,
+        prorated_amount=prorated_amount,
+        new_plan=body.new_plan,
+        effective_date=effective_date,
+    )
+
+
+@router.post("/subscription/cancel")
+def cancel_subscription(
+    user: Any = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Cancel the PayFast subscription. Access remains until end of billing cycle."""
+    from app.models.company import Company
+
+    _require_owner(user)
+    if not user.company_id:
+        raise HTTPException(status_code=404, detail="No company associated with this account")
+
+    company = db.get(Company, user.company_id)
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    if company.subscription_status == "cancelled":
+        raise HTTPException(status_code=400, detail="Subscription is already cancelled")
+
+    if not company.payfast_token:
+        raise HTTPException(
+            status_code=400,
+            detail="No active PayFast subscription token found. Contact support.",
+        )
+
+    ok = _pf_cancel(company.payfast_token)
+    if not ok:
+        raise HTTPException(
+            status_code=502,
+            detail="PayFast could not process the cancellation. Please try again.",
+        )
+
+    company.subscription_status = "cancelled"
+    db.commit()
+
+    billing = _billing_cycle(company.plan_start_date) if company.plan_start_date else None
+    access_until = billing["next_billing_date"].isoformat() if billing else "end of current period"
+
+    log.info("subscription.cancel company=%s", company.id)
+    return {
+        "ok": True,
+        "message": f"Your subscription has been cancelled. You will retain access until {access_until}.",
+        "access_until": access_until,
+    }
 
 
 # ---------------------------------------------------------------------------
