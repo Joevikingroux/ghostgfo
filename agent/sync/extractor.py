@@ -148,10 +148,55 @@ def extract(
     creditors_overdue = (_sum_field(cred_rows, "days_30_60") +
                          _sum_field(cred_rows, "days_61_90") +
                          _sum_field(cred_rows, "over_90_days"))
+    top_creditors = [
+        {
+            "name": r["supplier_name"],
+            "current": float(r.get("current_amount") or 0),
+            "days_30_60": float(r.get("days_30_60") or 0),
+            "days_61_90": float(r.get("days_61_90") or 0),
+            "over_90": float(r.get("over_90_days") or 0),
+            "total": float(r.get("total_outstanding") or 0),
+        }
+        for r in sorted(
+            cred_rows,
+            key=lambda x: float(x.get("total_outstanding") or 0),
+            reverse=True,
+        )[:5]
+    ]
 
     # --- Cash ---
     cash_rows = _safe_query(conn, queries.CASH_BALANCE, (period_end,), "cash")
     cash_balance = sum(float(r.get("balance") or 0) for r in cash_rows)
+
+    # --- Top selling items (last 30 days) ---
+    sales_rows = _safe_query(
+        conn, queries.TOP_SALES_ITEMS,
+        (period_end, period_end),
+        "sales_items",
+    )
+    # Build separate top-10 lists: by value (already sorted by SQL) and by qty
+    top_by_value = [
+        {
+            "stock_code": r["stock_code"],
+            "description": r["description"] or r["stock_code"],
+            "total_qty": float(r.get("total_qty") or 0),
+            "total_value": float(r.get("total_value") or 0),
+        }
+        for r in sales_rows[:10]
+    ]
+    top_by_qty = [
+        {
+            "stock_code": r["stock_code"],
+            "description": r["description"] or r["stock_code"],
+            "total_qty": float(r.get("total_qty") or 0),
+            "total_value": float(r.get("total_value") or 0),
+        }
+        for r in sorted(
+            sales_rows,
+            key=lambda x: float(x.get("total_qty") or 0),
+            reverse=True,
+        )[:10]
+    ]
 
     # --- Payroll GL journal detection ---
     journal_rows = _safe_query(
@@ -232,7 +277,12 @@ def extract(
             "creditors_total": creditors_total,
             "creditors_current": creditors_current,
             "creditors_overdue": creditors_overdue,
+            "top_creditors": top_creditors,
         },
+        "sales_items": {
+            "top_by_value": top_by_value,
+            "top_by_qty": top_by_qty,
+        } if (top_by_value or top_by_qty) else None,
         "payroll_summary_totals": payroll_summary or None,
         "payroll_employee_cost_totals": None,
         "payroll_leave_totals": leave_totals or None,

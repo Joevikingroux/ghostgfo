@@ -26,6 +26,10 @@
       Health Score: <strong>{{ metrics.health_score }}/100</strong>
       &nbsp;
       <span class="health-badge {{ metrics.health_rating | health_class }}">{{ metrics.health_rating }}</span>
+      {% if ai_generated %}
+      &nbsp;
+      <span style="font-size:7pt;background:#2DD4BF;color:#000;padding:2pt 5pt;border-radius:3pt;font-weight:700">AI&#8209;Powered</span>
+      {% endif %}
     </div>
   </div>
 </div>
@@ -264,6 +268,59 @@
   </div>
 </div>
 
+<!-- Creditors -->
+{% if metrics.creditors_total and metrics.creditors_total > 0 %}
+<div class="section">
+  <h2>&#128196; Suppliers &amp; Creditors</h2>
+  <div class="tile-row" style="margin-bottom:10pt">
+    <div class="tile">
+      <div class="tile-label">Total Payables</div>
+      <div class="tile-value">{{ metrics.creditors_total | currency }}</div>
+      <div class="tile-delta neutral">owed to suppliers</div>
+    </div>
+    <div class="tile">
+      <div class="tile-label">Overdue</div>
+      <div class="tile-value">{{ metrics.creditors_overdue | currency }}</div>
+      <div class="tile-delta {{ "neg" if metrics.creditors_overdue > 0 else "neutral" }}">
+        {{ "past due date" if metrics.creditors_overdue > 0 else "none overdue" }}
+      </div>
+    </div>
+    <div class="tile">
+      <div class="tile-label">Creditor Days</div>
+      <div class="tile-value">{{ "%.0f" | format(metrics.creditor_days) }}</div>
+      <div class="tile-delta neutral">avg days to pay</div>
+    </div>
+  </div>
+
+  {% if metrics.top_creditors %}
+  <table class="debtor-table">
+    <thead>
+      <tr>
+        <th>Supplier</th>
+        <th>Current</th>
+        <th>30–60 days</th>
+        <th>61–90 days</th>
+        <th>90+ days</th>
+        <th>Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in metrics.top_creditors %}
+      <tr>
+        <td>{{ c.name }}</td>
+        <td class="amount">{{ c.current | currency }}</td>
+        <td class="amount">{{ c.days_30_60 | currency }}</td>
+        <td class="amount">{{ c.days_61_90 | currency }}</td>
+        <td class="amount {{ "neg" if c.over_90 > 0 else "" }}">{{ c.over_90 | currency }}</td>
+        <td class="amount" style="font-weight:700">{{ c.total | currency }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endif %}
+
 <!-- Recommended Actions -->
 <div class="section">
   <h2>&#9989; Recommended Actions</h2>
@@ -271,6 +328,80 @@
     <p class="narrative">{{ narrative.actions }}</p>
   </div>
 </div>
+
+<!-- ================================================================
+     TOP SELLING ITEMS — Evolution clients only (new page)
+     ================================================================ -->
+{% if metrics.top_sales_by_value or metrics.top_sales_by_qty %}
+<div style="page-break-before:always"></div>
+
+<div class="report-header">
+  <div>
+    <h1>Ghost CFO</h1>
+    <div class="subtitle">Top Selling Items &mdash; {{ metrics.company_name }}</div>
+  </div>
+  <div class="header-right">
+    <div class="period">{{ month_name }} {{ metrics.period_year }}</div>
+    <div style="margin-top:4pt;font-size:8pt;color:#666">Last 30 days</div>
+  </div>
+</div>
+
+<div style="display:flex;gap:20pt;margin-top:14pt">
+
+  {% if metrics.top_sales_by_value %}
+  <div style="flex:1">
+    <h2 style="margin-bottom:8pt">&#128176; Top 10 by Sales Value</h2>
+    <table class="debtor-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Product</th>
+          <th>Qty Sold</th>
+          <th>Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in metrics.top_sales_by_value %}
+        <tr>
+          <td style="color:#666;width:16pt">{{ loop.index }}</td>
+          <td>{{ item.description }}</td>
+          <td class="amount">{{ "%.0f" | format(item.total_qty) }}</td>
+          <td class="amount" style="font-weight:700">{{ item.total_value | currency }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if metrics.top_sales_by_qty %}
+  <div style="flex:1">
+    <h2 style="margin-bottom:8pt">&#128230; Top 10 by Units Sold</h2>
+    <table class="debtor-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Product</th>
+          <th>Qty Sold</th>
+          <th>Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in metrics.top_sales_by_qty %}
+        <tr>
+          <td style="color:#666;width:16pt">{{ loop.index }}</td>
+          <td>{{ item.description }}</td>
+          <td class="amount" style="font-weight:700">{{ "%.0f" | format(item.total_qty) }}</td>
+          <td class="amount">{{ item.total_value | currency }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+</div>
+{% endif %}
 
 </body>
 </html>

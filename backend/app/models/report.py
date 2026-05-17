@@ -11,6 +11,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    String,
     Text,
     UniqueConstraint,
 )
@@ -66,6 +67,10 @@ class Report(Base, UUIDPK, Timestamps):
     payroll_pending: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )
+
+    ai_generated: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    ai_model: Mapped[str | None] = mapped_column(String(128))
+    ai_tokens_used: Mapped[int | None] = mapped_column(Integer)
 
     generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

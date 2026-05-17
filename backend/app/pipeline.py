@@ -199,6 +199,9 @@ def _execute(upload: Upload, db: Session) -> Report:
     report.narrative_trend = narrative.trend
     report.pdf_path = str(pdf_path)
     report.payroll_pending = False  # Partner upload always includes everything at once
+    report.ai_generated = narrative.ai_generated
+    report.ai_model = narrative.ai_model
+    report.ai_tokens_used = narrative.ai_tokens_used
     report.generated_at = datetime.now(timezone.utc)
 
     db.commit()
@@ -207,6 +210,7 @@ def _execute(upload: Upload, db: Session) -> Report:
         "pipeline.done",
         report_id=str(report.id),
         health_score=metrics.get("health_score"),
+        ai_generated=narrative.ai_generated,
     )
     return report
 
@@ -252,6 +256,7 @@ def run_for_agent_data(
         income_totals=metrics_data.get("income_totals", {}),
         balance_totals=metrics_data.get("balance_totals", {}),
         debtors_totals=metrics_data.get("debtors_totals", {}),
+        creditors_totals=metrics_data.get("creditors_totals", {}),
         payroll_summary_totals=metrics_data.get("payroll_summary_totals"),
         payroll_employee_cost_totals=metrics_data.get("payroll_employee_cost_totals"),
         payroll_leave_totals=metrics_data.get("payroll_leave_totals"),
@@ -304,6 +309,12 @@ def run_for_agent_data(
     if plan == "premium":
         _enrich_premium(metrics, company_id, period_month, period_year, db)
 
+    # Pass through Evolution-only extras (sales items) from the agent payload
+    sales_items = metrics_data.get("sales_items")
+    if sales_items:
+        metrics["top_sales_by_value"] = sales_items.get("top_by_value", [])
+        metrics["top_sales_by_qty"] = sales_items.get("top_by_qty", [])
+
     narrative = NarrativeGenerator().generate(metrics, language=language, plan=plan)
     pdf_path = generate_pdf(metrics, narrative, output_dir=settings.reports_dir)
 
@@ -335,6 +346,9 @@ def run_for_agent_data(
     report.narrative_trend = narrative.trend
     report.pdf_path = str(pdf_path)
     report.payroll_pending = payroll_pending
+    report.ai_generated = narrative.ai_generated
+    report.ai_model = narrative.ai_model
+    report.ai_tokens_used = narrative.ai_tokens_used
     report.generated_at = datetime.now(timezone.utc)
 
     db.commit()
@@ -343,6 +357,7 @@ def run_for_agent_data(
         "pipeline.agent.done",
         report_id=str(report.id),
         health_score=metrics.get("health_score"),
+        ai_generated=narrative.ai_generated,
     )
     return report
 
@@ -432,10 +447,17 @@ def apply_payroll_update(upload_id: uuid.UUID, db: Session) -> Report:
     report.narrative_trend = narrative.trend
     report.pdf_path = str(pdf_path)
     report.payroll_pending = False
+    report.ai_generated = narrative.ai_generated
+    report.ai_model = narrative.ai_model
+    report.ai_tokens_used = narrative.ai_tokens_used
 
     db.commit()
     db.refresh(report)
-    log.info("pipeline.payroll_applied", report_id=str(report.id))
+    log.info(
+        "pipeline.payroll_applied",
+        report_id=str(report.id),
+        ai_generated=narrative.ai_generated,
+    )
     return report
 
 

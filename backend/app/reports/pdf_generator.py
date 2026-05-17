@@ -90,6 +90,7 @@ def generate_pdf(
         brand_footer=settings.brand_footer,
         styles_url=styles_url,
         lang=metrics.get("language", "en"),
+        ai_generated=getattr(narrative, "ai_generated", False),
     )
 
     HTML(string=html_str, base_url=str(_TEMPLATES_DIR)).write_pdf(str(out_path))

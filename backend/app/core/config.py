@@ -67,6 +67,9 @@ class Settings(BaseSettings):
     brand_secondary: str = "#06B6D4"
     brand_footer: str = "Powered by Numbers10 Technology Solutions | numbers10.co.za"
 
+    # Admin notifications
+    admin_email: str = "joe@numbers10.co.za"
+
     # JWT
     jwt_algorithm: str = "HS256"
     jwt_access_minutes: int = 60 * 24
