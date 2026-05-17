@@ -229,14 +229,14 @@ function Hero() {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
-          <a
-            href="mailto:ghostcfo@numbers10.co.za"
+          <Link
+            to="/signup"
             className="group flex items-center gap-2 px-8 py-4 rounded-xl text-black font-bold text-base transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(45,212,191,0.4)]"
             style={{ background: "linear-gradient(135deg,#2DD4BF,#06B6D4)" }}
           >
             Get started from R500/month
             <span className="group-hover:translate-x-1 transition-transform">{Icon.arrow}</span>
-          </a>
+          </Link>
           <button
             onClick={() => document.querySelector("#how-it-works")?.scrollIntoView({ behavior: "smooth" })}
             className="flex items-center gap-2 px-8 py-4 rounded-xl text-zinc-300 font-semibold border border-white/10 hover:border-white/20 hover:text-white transition-all text-base"

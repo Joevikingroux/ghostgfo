@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -13,7 +13,7 @@ from app.api.deps import get_current_user, require_staff
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.logging import get_logger
-from app.core.security import generate_reset_token, hash_password
+from app.core.security import generate_reset_token, hash_password, verify_totp
 from app.models.company import Company
 from app.models.user import User
 from app.schemas.company import CompanyCreate, CompanyOut, CompanyUpdate
@@ -165,9 +165,17 @@ def update_company(
 @router.delete("/{company_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_company(
     company_id: uuid.UUID,
+    x_totp_code: str = Header(description="Admin 2FA code"),
     user: User = Depends(require_staff),
     db: Session = Depends(get_db),
 ):
+    if not user.totp_enabled or not user.totp_secret:
+        raise HTTPException(
+            status_code=403,
+            detail="2FA must be enabled on your account before you can delete records.",
+        )
+    if not verify_totp(user.totp_secret, x_totp_code.strip()):
+        raise HTTPException(status_code=403, detail="Invalid 2FA code.")
     company = db.get(Company, company_id)
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")

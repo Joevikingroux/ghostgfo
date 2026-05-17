@@ -6,13 +6,13 @@ import secrets
 import string
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_current_user, require_admin
 from app.core.database import get_db
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_totp
 from app.models.user import User
 from app.schemas.user import UserAdminOut, UserCreate, UserOut, UserUpdate
 
@@ -226,9 +226,17 @@ def admin_reset_password(
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_user(
     user_id: uuid.UUID,
+    x_totp_code: str = Header(description="Admin 2FA code"),
     caller: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
+    if not caller.totp_enabled or not caller.totp_secret:
+        raise HTTPException(
+            status_code=403,
+            detail="2FA must be enabled on your account before you can delete records.",
+        )
+    if not verify_totp(caller.totp_secret, x_totp_code.strip()):
+        raise HTTPException(status_code=403, detail="Invalid 2FA code.")
     target = db.get(User, user_id)
     if not target:
         raise HTTPException(status_code=404, detail="User not found")

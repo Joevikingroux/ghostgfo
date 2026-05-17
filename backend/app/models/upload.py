@@ -21,7 +21,7 @@ class Upload(Base, UUIDPK, Timestamps):
         nullable=False,
     )
     uploaded_by: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
     period_month: Mapped[int] = mapped_column(Integer, nullable=False)

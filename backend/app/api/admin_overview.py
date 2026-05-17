@@ -61,7 +61,7 @@ def admin_overview(
         )
 
         agent = company.evolution_agent
-        m = report.metrics or {} if report else {}
+        m = (report.metrics or {}) if report else {}
 
         if report and report.payroll_pending:
             payroll_pending_count += 1
