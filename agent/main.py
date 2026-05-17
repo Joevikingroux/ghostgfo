@@ -6,7 +6,9 @@ Usage (after install):
     GhostCFOAgent.exe --uninstall    # remove service
     GhostCFOAgent.exe --service      # called internally by NSSM / scheduler
 
-Configuration is read from  C:\\GhostCFO\\config.json  (written by --install).
+Configuration is stored encrypted at C:\\GhostCFO\\config.dat using Windows
+DPAPI (CryptProtectData / CRYPTPROTECT_LOCAL_MACHINE).  The blob can only be
+decrypted on this specific machine — copying the file elsewhere is useless.
 """
 from __future__ import annotations
 
@@ -22,8 +24,14 @@ from sync.encryptor import derive_agent_key, encrypt_payload
 from sync.extractor import extract
 from sync.uploader import upload_snapshot
 
-CONFIG_PATH = Path(r"C:\GhostCFO\config.json")
-LOG_PATH = Path(r"C:\GhostCFO\agent.log")
+_INSTALL_DIR      = Path(r"C:\GhostCFO")
+CONFIG_PATH       = _INSTALL_DIR / "config.dat"   # DPAPI-encrypted binary
+_LEGACY_JSON_PATH = _INSTALL_DIR / "config.json"  # plain-text (pre-v1.4, migrated on first run)
+LOG_PATH          = _INSTALL_DIR / "agent.log"
+
+# Additional entropy so the blob is specific to this application even if
+# another process on the same machine uses DPAPI with the same key material.
+_DPAPI_ENTROPY = b"GhostCFOAgent-Numbers10-v1"
 
 # Ensure the install directory exists before opening the log file
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -39,17 +47,63 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 
+def _dpapi_encrypt(data: bytes) -> bytes:
+    """Encrypt *data* with DPAPI, machine-scope (SYSTEM can decrypt)."""
+    import win32crypt
+    return win32crypt.CryptProtectData(
+        data,
+        "Ghost CFO Agent Config",
+        _DPAPI_ENTROPY,
+        None,
+        None,
+        0x4,  # CRYPTPROTECT_LOCAL_MACHINE — any process on this machine can decrypt
+    )
+
+
+def _dpapi_decrypt(blob: bytes) -> bytes:
+    """Decrypt a DPAPI blob previously encrypted by _dpapi_encrypt."""
+    import win32crypt
+    _desc, plaintext = win32crypt.CryptUnprotectData(
+        blob,
+        _DPAPI_ENTROPY,
+        None,
+        None,
+        0x4,  # CRYPTPROTECT_LOCAL_MACHINE
+    )
+    return plaintext
+
+
 def _load_config() -> dict:
-    if not CONFIG_PATH.exists():
-        raise FileNotFoundError(f"Config not found: {CONFIG_PATH}. Run --install first.")
-    with CONFIG_PATH.open(encoding="utf-8") as fh:
-        return json.load(fh)
+    """Load config, migrating the legacy plaintext JSON to encrypted DAT if needed."""
+    if CONFIG_PATH.exists():
+        plaintext = _dpapi_decrypt(CONFIG_PATH.read_bytes())
+        return json.loads(plaintext.decode("utf-8"))
+
+    # One-time migration: old plaintext config.json → encrypted config.dat
+    if _LEGACY_JSON_PATH.exists():
+        log.warning(
+            "Migrating plaintext config.json to DPAPI-encrypted config.dat — "
+            "the unencrypted file will be deleted."
+        )
+        with _LEGACY_JSON_PATH.open(encoding="utf-8") as fh:
+            cfg = json.load(fh)
+        _save_config(cfg)
+        try:
+            _LEGACY_JSON_PATH.unlink()
+            log.info("Deleted legacy config.json — secrets are now encrypted.")
+        except OSError as exc:
+            log.warning("Could not delete legacy config.json: %s — please delete it manually.", exc)
+        return cfg
+
+    raise FileNotFoundError(
+        f"Config not found at {CONFIG_PATH}. Run 'GhostCFOAgent.exe install ...' first."
+    )
 
 
 def _save_config(cfg: dict) -> None:
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with CONFIG_PATH.open("w", encoding="utf-8") as fh:
-        json.dump(cfg, fh, indent=2)
+    plaintext = json.dumps(cfg).encode("utf-8")
+    CONFIG_PATH.write_bytes(_dpapi_encrypt(plaintext))
 
 
 def _run_sync(
@@ -219,7 +273,7 @@ def install(api_key: str, server: str, db: str, username: str, password: str,
         click.echo("[OK] SQL Server connection successful.")
     else:
         click.echo("[WARN] SQL Server connection test failed — check server/db/credentials.")
-        click.echo("       The agent will still be installed; fix credentials in C:\\GhostCFO\\config.json")
+        click.echo("       Re-run: GhostCFOAgent.exe install --server=... --db=... --username=... --password=...")
 
     from service.installer import install_service
     install_service()
