@@ -31,6 +31,7 @@ export interface Company {
   bookkeeper_email: string | null;
   plan: "starter" | "professional" | "premium";
   active: boolean;
+  subscription_status: string;
   data_source: "partner" | "evolution";
   language: string;
   plan_start_date: string | null;
