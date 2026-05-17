@@ -363,6 +363,7 @@ function EditCompanyForm({ company, onSaved, onCancel }: {
 function CompaniesTab({ companies, onRefresh }: { companies: Company[]; onRefresh: () => void }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const PLAN_COLOUR: Record<string, string> = {
     starter: "text-zinc-400",
@@ -370,6 +371,24 @@ function CompaniesTab({ companies, onRefresh }: { companies: Company[]; onRefres
     premium: "text-brand-cyan",
   };
 
+  const isPending = (c: Company) =>
+    !c.active && c.subscription_status === "pending";
+
+  // Pending companies (abandoned signups) — delete directly, no TOTP needed
+  const deletePending = async (c: Company) => {
+    if (!window.confirm(`Delete abandoned signup for "${c.name}"?`)) return;
+    setDeletingId(c.id);
+    try {
+      await axios.delete(`/api/companies/${c.id}`, { withCredentials: true });
+      onRefresh();
+    } catch {
+      alert("Failed to delete. Please try again.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  // Active companies — require TOTP via modal
   const confirmDelete = async (totpCode: string) => {
     if (!deleteTarget) return;
     await axios.delete(`/api/companies/${deleteTarget.id}`, {
@@ -435,23 +454,36 @@ function CompaniesTab({ companies, onRefresh }: { companies: Company[]; onRefres
                       </span>
                     </td>
                     <td className="p-4">
-                      <span className={`text-xs font-medium ${c.active ? "text-emerald-400" : "text-red-400"}`}>
-                        {c.active ? "Active" : "Inactive"}
-                      </span>
+                      {isPending(c) ? (
+                        <span className="text-xs font-medium text-amber-400">
+                          Pending signup
+                        </span>
+                      ) : (
+                        <span className={`text-xs font-medium ${c.active ? "text-emerald-400" : "text-red-400"}`}>
+                          {c.active ? "Active" : "Inactive"}
+                        </span>
+                      )}
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-3">
+                        {!isPending(c) && (
+                          <button
+                            onClick={() => setEditingId(editingId === c.id ? null : c.id)}
+                            className={`text-xs transition-colors ${editingId === c.id ? "text-brand-teal" : "text-zinc-500 hover:text-white"}`}
+                          >
+                            {editingId === c.id ? "Cancel" : "Edit"}
+                          </button>
+                        )}
                         <button
-                          onClick={() => setEditingId(editingId === c.id ? null : c.id)}
-                          className={`text-xs transition-colors ${editingId === c.id ? "text-brand-teal" : "text-zinc-500 hover:text-white"}`}
+                          disabled={deletingId === c.id}
+                          onClick={() =>
+                            isPending(c)
+                              ? deletePending(c)
+                              : setDeleteTarget({ id: c.id, name: c.name })
+                          }
+                          className="text-xs text-zinc-600 hover:text-red-400 transition-colors disabled:opacity-40"
                         >
-                          {editingId === c.id ? "Cancel" : "Edit"}
-                        </button>
-                        <button
-                          onClick={() => setDeleteTarget({ id: c.id, name: c.name })}
-                          className="text-xs text-zinc-600 hover:text-red-400 transition-colors"
-                        >
-                          Delete
+                          {deletingId === c.id ? "Deleting…" : "Delete"}
                         </button>
                       </div>
                     </td>

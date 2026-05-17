@@ -165,19 +165,27 @@ def update_company(
 @router.delete("/{company_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_company(
     company_id: uuid.UUID,
-    x_totp_code: str = Header(description="Admin 2FA code"),
+    x_totp_code: str | None = Header(default=None, description="Admin 2FA code (required for active companies)"),
     user: User = Depends(require_staff),
     db: Session = Depends(get_db),
 ):
-    if not user.totp_enabled or not user.totp_secret:
-        raise HTTPException(
-            status_code=403,
-            detail="2FA must be enabled on your account before you can delete records.",
-        )
-    if not verify_totp(user.totp_secret, x_totp_code.strip()):
-        raise HTTPException(status_code=403, detail="Invalid 2FA code.")
     company = db.get(Company, company_id)
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
+
+    # Pending/inactive companies (abandoned signups) can be deleted without 2FA.
+    # Active companies require 2FA to prevent accidental data loss.
+    is_pending = not company.active and company.subscription_status == "pending"
+    if not is_pending:
+        if not x_totp_code:
+            raise HTTPException(status_code=403, detail="2FA code required to delete an active company.")
+        if not user.totp_enabled or not user.totp_secret:
+            raise HTTPException(
+                status_code=403,
+                detail="2FA must be enabled on your account before you can delete records.",
+            )
+        if not verify_totp(user.totp_secret, x_totp_code.strip()):
+            raise HTTPException(status_code=403, detail="Invalid 2FA code.")
+
     db.delete(company)
     db.commit()
