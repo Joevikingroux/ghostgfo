@@ -104,12 +104,17 @@ export const getReportStatus = (id: string) =>
     `/reports/${id}/status`
   );
 
-export const downloadReport = (id: string) =>
-  client.get(`/reports/${id}/download`, { responseType: "blob" });
+export const downloadReport = (id: string, totpCode?: string) =>
+  client.get(`/reports/${id}/download`, {
+    responseType: "blob",
+    headers: totpCode ? { "X-Totp-Code": totpCode } : undefined,
+  });
 
-export const sendReportEmail = (id: string, extraEmails: string[] = []) =>
+export const sendReportEmail = (id: string, extraEmails: string[] = [], totpCode?: string) =>
   client.post<{ ok: boolean; to: string[] }>(`/reports/${id}/send-email`, {
     extra_emails: extraEmails,
+  }, {
+    headers: totpCode ? { "X-Totp-Code": totpCode } : undefined,
   });
 
 
@@ -159,8 +164,8 @@ export const cancelSubscription = () =>
 export const getAdminOverview = () => client.get<AdminOverview>("/admin/overview");
 
 // Helper: trigger a PDF download in the browser
-export const triggerPdfDownload = async (reportId: string, filename: string) => {
-  const res = await downloadReport(reportId);
+export const triggerPdfDownload = async (reportId: string, filename: string, totpCode?: string) => {
+  const res = await downloadReport(reportId, totpCode);
   const url = URL.createObjectURL(res.data as Blob);
   const a = document.createElement("a");
   a.href = url;

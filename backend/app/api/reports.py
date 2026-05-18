@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, status
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_staff
 from app.core.database import get_db
+from app.core.security import verify_totp
 from app.models.report import Report
 from app.models.user import User
 from app.schemas.upload import ReportListItem, ReportOut
@@ -32,6 +33,14 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 def _check_access(report: Report, user: User) -> None:
     if user.role != "admin" and report.company_id != user.company_id:
         raise HTTPException(status_code=403, detail="Access denied")
+
+
+def _require_totp_if_enabled(user: User, code: str | None) -> None:
+    """Raise 403 if the user has TOTP enabled but the supplied code is missing or wrong."""
+    if not user.totp_enabled or not user.totp_secret:
+        return
+    if not code or not verify_totp(user.totp_secret, code.strip()):
+        raise HTTPException(status_code=403, detail="Invalid or missing 2FA code")
 
 
 @router.get("", response_model=list[ReportListItem])
@@ -64,11 +73,13 @@ def download_report(
     report_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    x_totp_code: str | None = Header(default=None),
 ):
     report = db.get(Report, report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
     _check_access(report, user)
+    _require_totp_if_enabled(user, x_totp_code)
     if not report.pdf_path:
         raise HTTPException(status_code=404, detail="PDF not yet generated")
     pdf = Path(report.pdf_path)
@@ -167,6 +178,7 @@ def send_email_manual(
     body: SendEmailBody = Body(default_factory=SendEmailBody),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    x_totp_code: str | None = Header(default=None),
 ) -> dict:
     """Send the report PDF by email. Optionally include extra recipients."""
     from datetime import datetime, timezone
@@ -177,6 +189,7 @@ def send_email_manual(
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
     _check_access(report, user)
+    _require_totp_if_enabled(user, x_totp_code)
     if not report.pdf_path:
         raise HTTPException(status_code=400, detail="PDF not yet generated")
 
