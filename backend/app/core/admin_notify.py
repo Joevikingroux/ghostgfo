@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import html as _html
+
 from app.core.config import settings
 from app.core.logging import get_logger
 
@@ -23,8 +25,8 @@ def notify_admin(subject: str, body: str) -> None:
                 "to": [settings.admin_email],
                 "subject": f"[Ghost CFO Alert] {subject}",
                 "html": (
-                    f"<p style='font-family:monospace;white-space:pre-wrap'>{body}</p>"
-                    f"<p style='color:#888;font-size:12px'>{settings.brand_footer}</p>"
+                    f"<p style='font-family:monospace;white-space:pre-wrap'>{_html.escape(body)}</p>"
+                    f"<p style='color:#888;font-size:12px'>{_html.escape(settings.brand_footer)}</p>"
                 ),
             }
         )

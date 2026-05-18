@@ -239,7 +239,7 @@ class ChangePlanResponse(BaseModel):
 # Subscription endpoints (owner only)
 # ---------------------------------------------------------------------------
 
-from app.api.deps import get_current_user  # noqa: E402
+from app.api.deps import get_current_user, require_admin  # noqa: E402
 
 
 def _require_owner(user: Any) -> None:
@@ -598,6 +598,7 @@ async def payfast_notify(request: Request, db: Session = Depends(get_db)) -> str
             received_sig,
             expected_sig,
         )
+        return "ok"
 
     # 2. Verify payment status
     if params.get("payment_status") != "COMPLETE":
@@ -698,7 +699,7 @@ def _send_welcome_email(company: Any, user: Any) -> None:
 
 
 @router.get("/config-test")
-def config_test() -> dict:
+def config_test(admin: Any = Depends(require_admin)) -> dict:
     """Admin debug: verify PayFast config and expose test param string for signature comparison."""
     test_fields: dict[str, str] = {
         "merchant_id": settings.payfast_merchant_id or "NOT_SET",
