@@ -95,6 +95,13 @@ def generate_pdf(
 
     HTML(string=html_str, base_url=str(_TEMPLATES_DIR)).write_pdf(str(out_path))
 
+    # Encrypt at rest — replace plaintext PDF with AES-256-GCM blob
+    from app.core.pdf_crypto import encrypt_pdf
+    enc_path = Path(str(out_path) + ".enc")
+    enc_path.write_bytes(encrypt_pdf(out_path.read_bytes()))
+    out_path.unlink()
+    out_path = enc_path
+
     log.info(
         "pdf.generated", path=str(out_path), size_kb=out_path.stat().st_size // 1024
     )

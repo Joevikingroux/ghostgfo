@@ -30,6 +30,24 @@ from app.reports.pdf_generator import generate_pdf
 log = get_logger(__name__)
 
 
+def _redact_pii(metrics: dict) -> dict:
+    """Remove personal names from stored metrics after the PDF has been generated.
+
+    The PDF (delivered to the owner) retains all names. The database copy
+    keeps only amounts so a breach doesn't expose client business relationships.
+    """
+    m = dict(metrics)
+    if isinstance(m.get("worst_offenders"), list):
+        m["worst_offenders"] = [
+            {**e, "name": "[redacted]"} for e in m["worst_offenders"]
+        ]
+    if isinstance(m.get("top_creditors"), list):
+        m["top_creditors"] = [
+            {**e, "name": "[redacted]"} for e in m["top_creditors"]
+        ]
+    return m
+
+
 def _parse_file(parser_cls, path: str | None):
     """Parse a single export file. Returns None if path is absent or missing on disk."""
     if not path or not Path(path).exists():
@@ -188,7 +206,7 @@ def _execute(upload: Upload, db: Session) -> Report:
         )
         db.add(report)
 
-    report.metrics = metrics
+    report.metrics = _redact_pii(metrics)
     report.narrative_summary = narrative.summary
     report.narrative_revenue = narrative.revenue
     report.narrative_costs = narrative.costs
@@ -335,7 +353,7 @@ def run_for_agent_data(
     if not existing:
         db.add(report)
 
-    report.metrics = metrics
+    report.metrics = _redact_pii(metrics)
     report.narrative_summary = narrative.summary
     report.narrative_revenue = narrative.revenue
     report.narrative_costs = narrative.costs
@@ -436,7 +454,7 @@ def apply_payroll_update(upload_id: uuid.UUID, db: Session) -> Report:
     narrative = NarrativeGenerator().generate(existing, language=language, plan=plan)
     pdf_path = generate_pdf(existing, narrative, output_dir=settings.reports_dir)
 
-    report.metrics = existing
+    report.metrics = _redact_pii(existing)
     report.narrative_summary = narrative.summary
     report.narrative_revenue = narrative.revenue
     report.narrative_costs = narrative.costs

@@ -6,7 +6,7 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Body, Depends, HTTPException, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -83,10 +83,12 @@ def download_report(
     filename = (
         f"ghostcfo_{company_name}_{report.period_year}-{report.period_month:02d}.pdf"
     )
-    return FileResponse(
-        path=str(pdf),
+
+    from app.core.pdf_crypto import read_pdf_bytes
+    return Response(
+        content=read_pdf_bytes(pdf),
         media_type="application/pdf",
-        filename=filename,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

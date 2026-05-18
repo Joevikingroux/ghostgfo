@@ -95,7 +95,8 @@ def send_report_email(
 
     subject = f"Ghost CFO — {company_name} — {month_name} {year} Financial Report"
 
-    pdf_bytes = Path(pdf_path).read_bytes()
+    from app.core.pdf_crypto import read_pdf_bytes
+    pdf_bytes = read_pdf_bytes(pdf_path)
     pdf_filename = (
         f"ghostcfo_{company_name.lower().replace(' ', '_')[:30]}_{year}-{month:02d}.pdf"
     )
