@@ -22,7 +22,6 @@ class Company(Base, UUIDPK, Timestamps):
 
     owner_name: Mapped[str | None] = mapped_column(String(255))
     owner_email: Mapped[str | None] = mapped_column(String(255))
-    owner_telegram: Mapped[str | None] = mapped_column(String(32))
     bookkeeper_name: Mapped[str | None] = mapped_column(String(255))
     bookkeeper_email: Mapped[str | None] = mapped_column(String(255))
 

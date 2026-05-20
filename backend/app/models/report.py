@@ -36,7 +36,7 @@ class Report(Base, UUIDPK, Timestamps):
         nullable=False,
     )
     upload_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("uploads.id"), nullable=True
+        UUID(as_uuid=True), ForeignKey("uploads.id", ondelete="SET NULL"), nullable=True
     )
 
     period_month: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -62,8 +62,6 @@ class Report(Base, UUIDPK, Timestamps):
 
     email_sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     email_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    telegram_sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    telegram_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     payroll_pending: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )

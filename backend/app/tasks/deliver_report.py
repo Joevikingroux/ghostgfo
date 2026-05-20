@@ -1,4 +1,4 @@
-"""Celery task: deliver a generated report by email and WhatsApp.
+"""Celery task: deliver a generated report by email.
 
 Called automatically after report generation, and available for manual
 re-trigger via the admin API.
@@ -107,10 +107,21 @@ def deliver_report_task(self, report_id: str) -> dict:
             )
 
         if not results["email"] and recipient_email:
-            raise self.retry(
-                exc=RuntimeError("Email delivery failed"),
-                countdown=60 * (2**self.request.retries),
-            )
+            try:
+                raise self.retry(
+                    exc=RuntimeError("Email delivery failed"),
+                    countdown=60 * (2**self.request.retries),
+                )
+            except self.MaxRetriesExceededError:
+                from app.core.admin_notify import notify_admin
+
+                notify_admin(
+                    f"deliver_report: all retries failed for report {report_id}",
+                    f"Company: {company.name}\n"
+                    f"Recipient: {recipient_email}\n"
+                    f"Report ID: {report_id}\n"
+                    f"All 3 delivery attempts failed. Manual intervention required.",
+                )
 
         return results
     finally:

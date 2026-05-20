@@ -158,7 +158,7 @@ def resend_report(
     _: User = Depends(require_staff),
     db: Session = Depends(get_db),
 ):
-    """Staff: re-trigger delivery for a report (useful after fixing email/WhatsApp config)."""
+    """Staff: re-trigger delivery for a report (useful after fixing email config)."""
     report = db.get(Report, report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
