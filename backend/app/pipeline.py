@@ -30,6 +30,24 @@ from app.reports.pdf_generator import generate_pdf
 log = get_logger(__name__)
 
 
+def _redact_pii(metrics: dict) -> dict:
+    """Remove personal names from stored metrics after the PDF has been generated.
+
+    The PDF (delivered to the owner) retains all names. The database copy
+    keeps only amounts so a breach doesn't expose client business relationships.
+    """
+    m = dict(metrics)
+    if isinstance(m.get("worst_offenders"), list):
+        m["worst_offenders"] = [
+            {**e, "name": "[redacted]"} for e in m["worst_offenders"]
+        ]
+    if isinstance(m.get("top_creditors"), list):
+        m["top_creditors"] = [
+            {**e, "name": "[redacted]"} for e in m["top_creditors"]
+        ]
+    return m
+
+
 def _parse_file(parser_cls, path: str | None):
     """Parse a single export file. Returns None if path is absent or missing on disk."""
     if not path or not Path(path).exists():
@@ -188,7 +206,7 @@ def _execute(upload: Upload, db: Session) -> Report:
         )
         db.add(report)
 
-    report.metrics = metrics
+    report.metrics = _redact_pii(metrics)
     report.narrative_summary = narrative.summary
     report.narrative_revenue = narrative.revenue
     report.narrative_costs = narrative.costs
@@ -199,6 +217,9 @@ def _execute(upload: Upload, db: Session) -> Report:
     report.narrative_trend = narrative.trend
     report.pdf_path = str(pdf_path)
     report.payroll_pending = False  # Partner upload always includes everything at once
+    report.ai_generated = narrative.ai_generated
+    report.ai_model = narrative.ai_model
+    report.ai_tokens_used = narrative.ai_tokens_used
     report.generated_at = datetime.now(timezone.utc)
 
     db.commit()
@@ -207,6 +228,7 @@ def _execute(upload: Upload, db: Session) -> Report:
         "pipeline.done",
         report_id=str(report.id),
         health_score=metrics.get("health_score"),
+        ai_generated=narrative.ai_generated,
     )
     return report
 
@@ -252,6 +274,7 @@ def run_for_agent_data(
         income_totals=metrics_data.get("income_totals", {}),
         balance_totals=metrics_data.get("balance_totals", {}),
         debtors_totals=metrics_data.get("debtors_totals", {}),
+        creditors_totals=metrics_data.get("creditors_totals", {}),
         payroll_summary_totals=metrics_data.get("payroll_summary_totals"),
         payroll_employee_cost_totals=metrics_data.get("payroll_employee_cost_totals"),
         payroll_leave_totals=metrics_data.get("payroll_leave_totals"),
@@ -304,6 +327,12 @@ def run_for_agent_data(
     if plan == "premium":
         _enrich_premium(metrics, company_id, period_month, period_year, db)
 
+    # Pass through Evolution-only extras (sales items) from the agent payload
+    sales_items = metrics_data.get("sales_items")
+    if sales_items:
+        metrics["top_sales_by_value"] = sales_items.get("top_by_value", [])
+        metrics["top_sales_by_qty"] = sales_items.get("top_by_qty", [])
+
     narrative = NarrativeGenerator().generate(metrics, language=language, plan=plan)
     pdf_path = generate_pdf(metrics, narrative, output_dir=settings.reports_dir)
 
@@ -324,7 +353,7 @@ def run_for_agent_data(
     if not existing:
         db.add(report)
 
-    report.metrics = metrics
+    report.metrics = _redact_pii(metrics)
     report.narrative_summary = narrative.summary
     report.narrative_revenue = narrative.revenue
     report.narrative_costs = narrative.costs
@@ -335,6 +364,9 @@ def run_for_agent_data(
     report.narrative_trend = narrative.trend
     report.pdf_path = str(pdf_path)
     report.payroll_pending = payroll_pending
+    report.ai_generated = narrative.ai_generated
+    report.ai_model = narrative.ai_model
+    report.ai_tokens_used = narrative.ai_tokens_used
     report.generated_at = datetime.now(timezone.utc)
 
     db.commit()
@@ -343,6 +375,7 @@ def run_for_agent_data(
         "pipeline.agent.done",
         report_id=str(report.id),
         health_score=metrics.get("health_score"),
+        ai_generated=narrative.ai_generated,
     )
     return report
 
@@ -421,7 +454,7 @@ def apply_payroll_update(upload_id: uuid.UUID, db: Session) -> Report:
     narrative = NarrativeGenerator().generate(existing, language=language, plan=plan)
     pdf_path = generate_pdf(existing, narrative, output_dir=settings.reports_dir)
 
-    report.metrics = existing
+    report.metrics = _redact_pii(existing)
     report.narrative_summary = narrative.summary
     report.narrative_revenue = narrative.revenue
     report.narrative_costs = narrative.costs
@@ -432,10 +465,17 @@ def apply_payroll_update(upload_id: uuid.UUID, db: Session) -> Report:
     report.narrative_trend = narrative.trend
     report.pdf_path = str(pdf_path)
     report.payroll_pending = False
+    report.ai_generated = narrative.ai_generated
+    report.ai_model = narrative.ai_model
+    report.ai_tokens_used = narrative.ai_tokens_used
 
     db.commit()
     db.refresh(report)
-    log.info("pipeline.payroll_applied", report_id=str(report.id))
+    log.info(
+        "pipeline.payroll_applied",
+        report_id=str(report.id),
+        ai_generated=narrative.ai_generated,
+    )
     return report
 
 

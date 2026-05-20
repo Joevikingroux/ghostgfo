@@ -16,6 +16,7 @@ celery = Celery(
         "app.tasks.deliver_report",
         "app.tasks.weekly_pulse",
         "app.tasks.debtor_alerts",
+        "app.tasks.cleanup_pending",
     ],
 )
 
@@ -31,7 +32,7 @@ celery.conf.update(
     worker_max_tasks_per_child=50,
     # ---- Celery Beat periodic schedule ----
     beat_schedule={
-        # Check all active clients daily at 08:00 SAST and fire WhatsApp
+        # Check all active clients daily at 08:00 SAST and send email
         # alerts for any invoices that have crossed the 61-day mark.
         "debtor-alerts-daily": {
             "task": "ghostcfo.debtor_alerts",
@@ -41,6 +42,12 @@ celery.conf.update(
         "weekly-pulse-monday": {
             "task": "ghostcfo.weekly_pulse",
             "schedule": crontab(hour=7, minute=0, day_of_week=1),
+        },
+        # Purge abandoned signup accounts every 30 minutes.
+        # Pending companies (payment never completed) older than 2 hours are deleted.
+        "cleanup-pending-every-30m": {
+            "task": "ghostcfo.cleanup_pending",
+            "schedule": crontab(minute="*/30"),
         },
     },
 )

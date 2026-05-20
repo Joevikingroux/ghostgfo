@@ -7,28 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import GhostLogo from "@/components/GhostLogo";
-
-const PLANS = [
-  {
-    id: "starter",
-    name: "Starter",
-    price: 500,
-    features: ["Monthly PDF report", "Email delivery", "12-month history", "Pastel Partner or Evolution"],
-  },
-  {
-    id: "professional",
-    name: "Professional",
-    price: 900,
-    popular: true,
-    features: ["Everything in Starter", "Weekly cash pulse", "Debtor alerts"],
-  },
-  {
-    id: "premium",
-    name: "Premium",
-    price: 1500,
-    features: ["Everything in Professional", "Quarterly trend analysis", "Anomaly alerts", "Custom commentary", "Priority support"],
-  },
-];
+import { PLANS, COMPAT_LABELS } from "@/lib/plans";
 
 interface PayFastFields {
   [key: string]: string;
@@ -108,7 +87,7 @@ export default function SignupPage() {
             <button
               key={p.id}
               onClick={() => setPlan(p.id)}
-              className={`relative text-left rounded-xl border-2 p-6 transition-all ${
+              className={`relative text-left rounded-xl border-2 p-6 transition-all flex flex-col ${
                 plan === p.id
                   ? "border-teal-400 bg-teal-400/5"
                   : "border-white/10 hover:border-white/30 bg-white/2"
@@ -120,10 +99,11 @@ export default function SignupPage() {
                   Most Popular
                 </span>
               )}
-              <div className="flex items-start justify-between mb-4">
+              <div className="flex items-start justify-between mb-1">
                 <div>
                   <p className="font-heading font-bold text-lg">{p.name}</p>
-                  <p className="text-2xl font-bold mt-1">
+                  <p className="text-xs text-zinc-500 mb-2">{p.tagline}</p>
+                  <p className="text-2xl font-bold">
                     R{p.price.toLocaleString()}
                     <span className="text-sm font-normal text-zinc-400">/mo</span>
                   </p>
@@ -134,7 +114,7 @@ export default function SignupPage() {
                   {plan === p.id && <div className="w-2 h-2 rounded-full bg-black" />}
                 </div>
               </div>
-              <ul className="space-y-2">
+              <ul className="space-y-1.5 my-4 flex-1">
                 {p.features.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-sm text-zinc-300">
                     <span className="text-teal-400 mt-0.5 shrink-0">✓</span>
@@ -142,6 +122,23 @@ export default function SignupPage() {
                   </li>
                 ))}
               </ul>
+              <div className="border-t border-white/6 pt-3 mt-auto">
+                <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-2 font-semibold">Works with</p>
+                <ul className="space-y-1">
+                  {COMPAT_LABELS.map((c) => (
+                    <li key={c.key} className="flex items-center gap-2 text-xs">
+                      {p.compatibility[c.key] ? (
+                        <span className="text-teal-400 shrink-0">✓</span>
+                      ) : (
+                        <span className="text-zinc-600 shrink-0">✕</span>
+                      )}
+                      <span className={p.compatibility[c.key] ? "text-zinc-300" : "text-zinc-600"}>
+                        {c.label}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </button>
           ))}
         </div>

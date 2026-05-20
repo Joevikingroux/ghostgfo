@@ -1,49 +1,91 @@
 import { useEffect, useState } from "react";
-import { getReports, triggerPdfDownload, sendReportEmail, deleteReport } from "@/lib/api";
+import { getReports, triggerPdfDownload, sendReportEmail, deleteReport, getMe } from "@/lib/api";
 import { formatPeriod } from "@/lib/format";
-import type { ReportListItem } from "@/lib/types";
+import type { ReportListItem, User } from "@/lib/types";
+
+type TotpAction = { kind: "download"; report: ReportListItem } | { kind: "email"; report: ReportListItem };
 
 export default function ReportsPage() {
   const [reports, setReports] = useState<ReportListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
-  // which report has the extra-recipients panel open
   const [emailPanelId, setEmailPanelId] = useState<string | null>(null);
   const [extraEmails, setExtraEmails] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean }>({ msg: "", ok: true });
 
+  // TOTP modal state
+  const [totpAction, setTotpAction] = useState<TotpAction | null>(null);
+  const [totpCode, setTotpCode] = useState("");
+  const [totpError, setTotpError] = useState("");
+  const [totpBusy, setTotpBusy] = useState(false);
+
   useEffect(() => {
-    getReports()
-      .then((r) => setReports(r.data))
-      .finally(() => setLoading(false));
+    Promise.all([
+      getReports().then((r) => setReports(r.data)),
+      getMe().then((r) => setCurrentUser(r.data)),
+    ]).finally(() => setLoading(false));
   }, []);
 
-  const handleDownload = async (r: ReportListItem) => {
+  const needsTotp = () => !!currentUser?.totp_enabled;
+
+  // --- Download ---
+  const handleDownload = (r: ReportListItem) => {
+    if (needsTotp()) {
+      setTotpAction({ kind: "download", report: r });
+      setTotpCode("");
+      setTotpError("");
+    } else {
+      execDownload(r);
+    }
+  };
+
+  const execDownload = async (r: ReportListItem, code?: string) => {
     setDownloading(r.id);
     try {
       const filename = `ghostcfo_report_${r.period_year}-${String(r.period_month).padStart(2, "0")}.pdf`;
-      await triggerPdfDownload(r.id, filename);
+      await triggerPdfDownload(r.id, filename, code);
+      setTotpAction(null);
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 403) {
+        setTotpError("Invalid 2FA code — please try again.");
+      } else {
+        showToast("Download failed — try again.", false);
+        setTotpAction(null);
+      }
     } finally {
       setDownloading(null);
     }
   };
 
+  // --- Send email ---
   const openEmailPanel = (r: ReportListItem) => {
     setEmailPanelId(r.id);
     setExtraEmails("");
   };
 
-  const handleSendEmail = async (r: ReportListItem) => {
+  const handleSendEmail = (r: ReportListItem) => {
+    if (needsTotp()) {
+      setTotpAction({ kind: "email", report: r });
+      setTotpCode("");
+      setTotpError("");
+    } else {
+      execSendEmail(r);
+    }
+  };
+
+  const execSendEmail = async (r: ReportListItem, code?: string) => {
     setSendingEmail(r.id);
     const extras = extraEmails
       .split(/[\s,;]+/)
       .map((e) => e.trim())
       .filter(Boolean);
     try {
-      const res = await sendReportEmail(r.id, extras);
+      const res = await sendReportEmail(r.id, extras, code);
       const sent = res.data.to;
       const label = sent.length > 1 ? `${sent[0]} + ${sent.length - 1} more` : sent[0];
       showToast(`Email sent to ${label}`, true);
@@ -52,14 +94,41 @@ export default function ReportsPage() {
       );
       setEmailPanelId(null);
       setExtraEmails("");
+      setTotpAction(null);
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      showToast(detail ?? "Email failed — check server logs.", false);
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 403) {
+        setTotpError("Invalid 2FA code — please try again.");
+      } else {
+        const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+        showToast(detail ?? "Email failed — check server logs.", false);
+        setTotpAction(null);
+      }
     } finally {
       setSendingEmail(null);
     }
   };
 
+  // --- TOTP modal submit ---
+  const handleTotpSubmit = async () => {
+    if (!totpAction || !totpCode.trim()) {
+      setTotpError("Enter your 6-digit code.");
+      return;
+    }
+    setTotpBusy(true);
+    setTotpError("");
+    try {
+      if (totpAction.kind === "download") {
+        await execDownload(totpAction.report, totpCode.trim());
+      } else {
+        await execSendEmail(totpAction.report, totpCode.trim());
+      }
+    } finally {
+      setTotpBusy(false);
+    }
+  };
+
+  // --- Delete ---
   const handleDelete = async (id: string) => {
     setDeleting(id);
     try {
@@ -244,6 +313,53 @@ export default function ReportsPage() {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* 2FA confirmation modal */}
+      {totpAction && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-zinc-900 border border-white/10 rounded-xl p-6 w-full max-w-sm space-y-4">
+            <div>
+              <h2 className="font-heading font-bold text-lg">Confirm with 2FA</h2>
+              <p className="text-sm text-zinc-400 mt-1">
+                {totpAction.kind === "download"
+                  ? "Enter your authenticator code to download this report."
+                  : "Enter your authenticator code to send this report by email."}
+              </p>
+            </div>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
+              value={totpCode}
+              onChange={(e) => { setTotpCode(e.target.value.replace(/\D/g, "")); setTotpError(""); }}
+              onKeyDown={(e) => e.key === "Enter" && handleTotpSubmit()}
+              placeholder="000000"
+              className="input-base w-full text-center text-xl tracking-widest font-mono"
+              autoFocus
+            />
+            {totpError && (
+              <p className="text-xs text-red-400">{totpError}</p>
+            )}
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => { setTotpAction(null); setTotpCode(""); setTotpError(""); }}
+                className="btn-ghost text-sm px-4 py-2"
+                disabled={totpBusy}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleTotpSubmit}
+                disabled={totpBusy || totpCode.length < 6}
+                className="btn-primary text-sm px-4 py-2"
+              >
+                {totpBusy ? "Verifying…" : "Confirm"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

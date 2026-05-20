@@ -212,7 +212,7 @@ def reset_password_request(body: ResetPasswordRequest, db: Session = Depends(get
     if user:
         token = generate_reset_token()
         user.password_reset_token = token
-        user.password_reset_expires = datetime.now(timezone.utc) + timedelta(hours=2)
+        user.password_reset_expires = datetime.now(timezone.utc) + timedelta(minutes=30)
         db.commit()
         reset_url = f"{settings.base_url}/set-password?token={token}"
         send_password_reset_email(

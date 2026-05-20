@@ -15,4 +15,5 @@ def compute(creditors_totals: dict[str, Any], costs_current: float) -> dict[str,
         "creditors_total": round_money(total),
         "creditors_overdue": round_money(overdue),
         "creditor_days": round_pct(creditor_days),
+        "top_creditors": creditors_totals.get("top_creditors", []),
     }

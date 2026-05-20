@@ -45,6 +45,8 @@ a = Analysis(
         ('assets/ghostcfo.ico', 'assets'),
     ] + _extra_datas,
     hiddenimports=[
+        # Windows DPAPI — config encryption
+        'win32crypt',
         # cryptography backends
         'cryptography.hazmat.primitives.ciphers.aead',
         'cryptography.hazmat.backends.openssl',

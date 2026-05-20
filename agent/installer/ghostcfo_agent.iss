@@ -9,7 +9,7 @@
 ; Output: installer\Output\GhostCFOAgentSetup.exe
 
 #define AppName      "Ghost CFO Agent"
-#define AppVersion   "1.3.0"
+#define AppVersion   "1.4.0"
 #define AppPublisher "Numbers10 Technology Solutions"
 #define AppURL       "https://ghostcfo.numbers10.co.za"
 #define ExeName      "GhostCFOAgent.exe"

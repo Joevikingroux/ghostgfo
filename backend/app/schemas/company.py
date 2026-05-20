@@ -49,7 +49,6 @@ class CompanyOut(BaseModel):
     industry: str | None
     owner_name: str | None
     owner_email: str | None
-    owner_telegram: str | None
     bookkeeper_name: str | None
     bookkeeper_email: str | None
     plan: str

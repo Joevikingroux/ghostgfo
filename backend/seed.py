@@ -74,7 +74,6 @@ def seed(email: str, password: str | None, with_test_company: bool) -> None:
                     industry="Retail - Hardware",
                     owner_name="Test Owner",
                     owner_email="owner@example.co.za",
-                    owner_telegram="",
                     bookkeeper_name="Test Bookkeeper",
                     bookkeeper_email="bookkeeper@example.co.za",
                     plan="professional",

@@ -2,55 +2,8 @@ import { useEffect, useState } from "react";
 import { getSubscription, changePlan, cancelSubscription } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type { SubscriptionInfo } from "@/lib/types";
-
-// ---------------------------------------------------------------------------
-// Plan definitions
-// ---------------------------------------------------------------------------
-
-const PLANS: Array<{
-  id: PlanId;
-  name: string;
-  price: number;
-  popular?: boolean;
-  features: string[];
-}> = [
-  {
-    id: "starter",
-    name: "Starter",
-    price: 500,
-    features: [
-      "Monthly PDF report",
-      "Email delivery",
-      "12-month report history",
-      "Pastel Partner or Evolution",
-    ],
-  },
-  {
-    id: "professional",
-    name: "Professional",
-    price: 900,
-    popular: true,
-    features: [
-      "Everything in Starter",
-      "Weekly cash pulse",
-      "Debtor alert notifications",
-      "WhatsApp delivery",
-    ],
-  },
-  {
-    id: "premium",
-    name: "Premium",
-    price: 1500,
-    features: [
-      "Everything in Professional",
-      "Quarterly trend analysis",
-      "Year-on-year comparison",
-      "Anomaly alerts",
-      "Custom commentary",
-      "Priority support",
-    ],
-  },
-];
+import { PLANS, COMPAT_LABELS } from "@/lib/plans";
+import type { PlanDef } from "@/lib/plans";
 
 type PlanId = "starter" | "professional" | "premium";
 
@@ -94,8 +47,6 @@ function statusBadge(status: string) {
 // Plan card
 // ---------------------------------------------------------------------------
 
-type PlanDef = (typeof PLANS)[number];
-
 function PlanCard({
   plan,
   current,
@@ -116,7 +67,7 @@ function PlanCard({
 
   return (
     <div
-      className={`card p-5 flex flex-col gap-4 relative transition-all ${
+      className={`card p-5 flex flex-col gap-3 relative transition-all ${
         current
           ? "border-brand-teal/50 bg-brand-teal/5"
           : plan.popular
@@ -137,7 +88,8 @@ function PlanCard({
 
       <div>
         <p className="font-heading font-bold text-base text-white">{plan.name}</p>
-        <p className="text-2xl font-bold mt-1 brand-text">{fmt(plan.price)}<span className="text-sm font-normal text-zinc-500">/month</span></p>
+        <p className="text-xs text-zinc-500 mb-1">{plan.tagline}</p>
+        <p className="text-2xl font-bold brand-text">{fmt(plan.price)}<span className="text-sm font-normal text-zinc-500">/month</span></p>
       </div>
 
       <ul className="space-y-1.5 flex-1">
@@ -148,6 +100,24 @@ function PlanCard({
           </li>
         ))}
       </ul>
+
+      <div className="border-t border-white/6 pt-2">
+        <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-1.5 font-semibold">Works with</p>
+        <ul className="space-y-1">
+          {COMPAT_LABELS.map((c) => (
+            <li key={c.key} className="flex items-center gap-1.5 text-xs">
+              {plan.compatibility[c.key] ? (
+                <span className="text-brand-teal shrink-0">✓</span>
+              ) : (
+                <span className="text-zinc-600 shrink-0">✕</span>
+              )}
+              <span className={plan.compatibility[c.key] ? "text-zinc-400" : "text-zinc-600"}>
+                {c.label}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
 
       {current ? (
         <div className="text-xs text-zinc-500 text-center pt-1">You are on this plan</div>
@@ -167,9 +137,7 @@ function PlanCard({
             disabled={disabled || sub.subscription_status === "cancelled"}
             onClick={() => onSelect(plan.id as PlanId)}
             className={`w-full text-sm font-medium py-2 rounded-lg transition-colors ${
-              isUpgrade
-                ? "btn-primary"
-                : "btn-secondary"
+              isUpgrade ? "btn-primary" : "btn-secondary"
             } disabled:opacity-40 disabled:cursor-not-allowed`}
           >
             {isUpgrade ? "Upgrade" : "Downgrade"}

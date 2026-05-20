@@ -29,8 +29,8 @@ def chat_completion(
     model: str | None = None,
     temperature: float | None = None,
     max_tokens: int | None = None,
-) -> str:
-    """Return the assistant content string from the LLM."""
+) -> tuple[str, int]:
+    """Return (assistant content, total_tokens) from the LLM."""
     m = model or settings.openrouter_model
     t = temperature if temperature is not None else settings.llm_temperature
     n = max_tokens or settings.llm_max_tokens
@@ -74,4 +74,5 @@ def chat_completion(
         latency_s=round(elapsed, 2),
     )
 
-    return data["choices"][0]["message"]["content"].strip()
+    total_tokens = input_tokens + output_tokens
+    return data["choices"][0]["message"]["content"].strip(), total_tokens

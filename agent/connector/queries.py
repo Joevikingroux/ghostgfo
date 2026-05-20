@@ -205,6 +205,34 @@ ORDER BY pp.PeriodEndDate;
 """
 
 # ---------------------------------------------------------------------------
+# Top 20 selling stock items — last 30 days (sorted by value in SQL, also
+# used for top-by-qty sorting in Python).
+# Tables: INVNUM (invoice headers), INVLines (invoice lines),
+#         _etblStockDetails (stock master).
+# iTransactionCode 7 = Tax Invoice (most common SA sales type).
+# Field names match Pastel Evolution 2.x/3.x defaults; may need adjustment
+# for older versions.
+# ---------------------------------------------------------------------------
+
+TOP_SALES_ITEMS = """
+SELECT TOP 20
+    il.cStockCode                             AS stock_code,
+    ISNULL(sd.cDescription, il.cStockCode)    AS description,
+    SUM(il.fQty)                              AS total_qty,
+    SUM(il.fLineValue)                        AS total_value
+FROM INVLines il
+JOIN INVNUM inv ON il.iINVNUMRef = inv.iINVNUMRef
+LEFT JOIN _etblStockDetails sd ON il.cStockCode = sd.cStockCode
+WHERE inv.dInvoiceDate >= DATEADD(day, -30, ?)
+  AND inv.dInvoiceDate <= ?
+  AND il.fLineValue > 0
+  AND ISNULL(il.cStockCode, '') <> ''
+  AND ISNULL(il.cStockCode, '') <> ' '
+GROUP BY il.cStockCode, sd.cDescription
+ORDER BY total_value DESC;
+"""
+
+# ---------------------------------------------------------------------------
 # Leave liability (linked Payroll DB only)
 # ---------------------------------------------------------------------------
 

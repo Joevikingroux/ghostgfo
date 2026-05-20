@@ -38,6 +38,9 @@ class Narrative:
     cash: str
     actions: str
     trend: str = ""
+    ai_generated: bool = False
+    ai_model: str | None = None
+    ai_tokens_used: int | None = None
 
 
 class NarrativeGenerator:
@@ -57,6 +60,10 @@ class NarrativeGenerator:
         from app.narrative.openrouter import chat_completion
 
         parts: dict[str, str] = {}
+        total_tokens = 0
+        ai_success = False
+        model_used = settings.openrouter_model
+
         for section in SECTIONS:
             # Gate payroll section to Professional+
             if section == "payroll" and plan == "starter":
@@ -71,12 +78,32 @@ class NarrativeGenerator:
             else:
                 msgs = prompts.build_section_prompt(section, metrics, lang=language)
             try:
-                parts[section] = chat_completion(msgs)
+                content, tokens = chat_completion(msgs)
+                parts[section] = content
+                total_tokens += tokens
+                ai_success = True
             except Exception as exc:
                 log.error("narrative.llm_error", section=section, error=str(exc))
                 parts[section] = _stub_section(section, metrics, plan=plan)
 
-        return Narrative(**parts)
+        if not ai_success:
+            # Every LLM call failed — notify admin
+            from app.core.admin_notify import notify_admin
+
+            company = metrics.get("company_name", "unknown")
+            notify_admin(
+                "AI narrative generation failed",
+                f"All LLM calls failed for company '{company}' "
+                f"({metrics.get('period_month')}/{metrics.get('period_year')}). "
+                f"Report was generated with stub narratives.",
+            )
+
+        return Narrative(
+            **parts,
+            ai_generated=ai_success,
+            ai_model=model_used if ai_success else None,
+            ai_tokens_used=total_tokens if ai_success else None,
+        )
 
 
 # ---------------------------------------------------------------------------

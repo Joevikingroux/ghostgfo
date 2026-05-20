@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { getUsers, adminReset2FA, deactivateUser, activateUser, updateUser, reactivateAgent, deactivateAgent, deleteAgent, createUser, adminResetPassword } from "@/lib/api";
 import type { AgentCreatedDetail, Company, EvolutionAgent, UserAdminView } from "@/lib/types";
@@ -20,6 +20,85 @@ function syncBadge(status: string | null) {
     <span className={`text-xs font-medium ${ok ? "text-emerald-400" : "text-red-400"}`}>
       {ok ? "✓ OK" : "✗ " + status}
     </span>
+  );
+}
+
+// ── 2FA delete confirmation modal ─────────────────────────────────────────
+
+interface DeleteModalProps {
+  title: string;
+  description: string;
+  onConfirm: (totpCode: string) => Promise<void>;
+  onCancel: () => void;
+}
+
+function DeleteConfirmModal({ title, description, onConfirm, onCancel }: DeleteModalProps) {
+  const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (code.replace(/\s/g, "").length < 6) { setError("Enter your 6-digit 2FA code."); return; }
+    setError("");
+    setLoading(true);
+    try {
+      await onConfirm(code.replace(/\s/g, ""));
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setError(msg || "Failed. Check your 2FA code and try again.");
+      setCode("");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+      <div className="card w-full max-w-sm p-6 space-y-4 border border-red-500/30">
+        <h3 className="font-heading text-base font-bold text-red-400">{title}</h3>
+        <p className="text-zinc-400 text-sm">{description}</p>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="block text-xs text-zinc-400 mb-1.5">Enter your 2FA code to confirm</label>
+            <input
+              ref={inputRef}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9 ]*"
+              maxLength={7}
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              className="input-base w-full text-center text-xl tracking-widest font-mono"
+              placeholder="000 000"
+              required
+            />
+          </div>
+          {error && (
+            <p className="text-red-400 text-xs">{error}</p>
+          )}
+          <div className="flex gap-3 pt-1">
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 py-2 px-4 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              {loading ? "Deleting…" : "Confirm Delete"}
+            </button>
+            <button
+              type="button"
+              onClick={onCancel}
+              className="btn-secondary"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
@@ -283,6 +362,8 @@ function EditCompanyForm({ company, onSaved, onCancel }: {
 
 function CompaniesTab({ companies, onRefresh }: { companies: Company[]; onRefresh: () => void }) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const PLAN_COLOUR: Record<string, string> = {
     starter: "text-zinc-400",
@@ -290,19 +371,45 @@ function CompaniesTab({ companies, onRefresh }: { companies: Company[]; onRefres
     premium: "text-brand-cyan",
   };
 
-  const deleteCompany = async (id: string, name: string) => {
-    if (!confirm(`Delete "${name}"? This will permanently remove the company and all its data. This cannot be undone.`)) return;
+  const isPending = (c: Company) =>
+    !c.active && c.subscription_status === "pending";
+
+  // Pending companies (abandoned signups) — delete directly, no TOTP needed
+  const deletePending = async (c: Company) => {
+    if (!window.confirm(`Delete abandoned signup for "${c.name}"?`)) return;
+    setDeletingId(c.id);
     try {
-      await axios.delete(`/api/companies/${id}`, { withCredentials: true });
+      await axios.delete(`/api/companies/${c.id}`, { withCredentials: true });
       onRefresh();
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      alert(msg || "Failed to delete company.");
+    } catch {
+      alert("Failed to delete. Please try again.");
+    } finally {
+      setDeletingId(null);
     }
+  };
+
+  // Active companies — require TOTP via modal
+  const confirmDelete = async (totpCode: string) => {
+    if (!deleteTarget) return;
+    await axios.delete(`/api/companies/${deleteTarget.id}`, {
+      withCredentials: true,
+      headers: { "X-Totp-Code": totpCode },
+    });
+    setDeleteTarget(null);
+    onRefresh();
   };
 
   return (
     <div className="space-y-4">
+      {deleteTarget && (
+        <DeleteConfirmModal
+          title={`Delete "${deleteTarget.name}"?`}
+          description="This will permanently remove the company and all its data. This cannot be undone."
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+
       <NewCompanyForm onCreated={onRefresh} />
 
       {companies.length === 0 ? (
@@ -347,23 +454,36 @@ function CompaniesTab({ companies, onRefresh }: { companies: Company[]; onRefres
                       </span>
                     </td>
                     <td className="p-4">
-                      <span className={`text-xs font-medium ${c.active ? "text-emerald-400" : "text-red-400"}`}>
-                        {c.active ? "Active" : "Inactive"}
-                      </span>
+                      {isPending(c) ? (
+                        <span className="text-xs font-medium text-amber-400">
+                          Pending signup
+                        </span>
+                      ) : (
+                        <span className={`text-xs font-medium ${c.active ? "text-emerald-400" : "text-red-400"}`}>
+                          {c.active ? "Active" : "Inactive"}
+                        </span>
+                      )}
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-3">
+                        {!isPending(c) && (
+                          <button
+                            onClick={() => setEditingId(editingId === c.id ? null : c.id)}
+                            className={`text-xs transition-colors ${editingId === c.id ? "text-brand-teal" : "text-zinc-500 hover:text-white"}`}
+                          >
+                            {editingId === c.id ? "Cancel" : "Edit"}
+                          </button>
+                        )}
                         <button
-                          onClick={() => setEditingId(editingId === c.id ? null : c.id)}
-                          className={`text-xs transition-colors ${editingId === c.id ? "text-brand-teal" : "text-zinc-500 hover:text-white"}`}
+                          disabled={deletingId === c.id}
+                          onClick={() =>
+                            isPending(c)
+                              ? deletePending(c)
+                              : setDeleteTarget({ id: c.id, name: c.name })
+                          }
+                          className="text-xs text-zinc-600 hover:text-red-400 transition-colors disabled:opacity-40"
                         >
-                          {editingId === c.id ? "Cancel" : "Edit"}
-                        </button>
-                        <button
-                          onClick={() => deleteCompany(c.id, c.name)}
-                          className="text-xs text-zinc-600 hover:text-red-400 transition-colors"
-                        >
-                          Delete
+                          {deletingId === c.id ? "Deleting…" : "Delete"}
                         </button>
                       </div>
                     </td>
@@ -601,6 +721,7 @@ function UsersTab({ companies }: { companies: Company[] }) {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<UserAdminView | null>(null);
 
   const load = () =>
     getUsers().then((r) => setUsers(r.data)).finally(() => setLoading(false));
@@ -619,7 +740,6 @@ function UsersTab({ companies }: { companies: Company[] }) {
   };
 
   const handleToggleActive = async (u: UserAdminView) => {
-    const action = u.active ? "deactivate" : "activate";
     if (!confirm(`${u.active ? "Deactivate" : "Activate"} user ${u.email}?`)) return;
     setActionInProgress(u.id);
     try {
@@ -630,11 +750,15 @@ function UsersTab({ companies }: { companies: Company[] }) {
     }
   };
 
-  const handleDelete = async (u: UserAdminView) => {
-    if (!confirm(`Permanently delete ${u.email}? This cannot be undone.`)) return;
-    setActionInProgress(u.id);
+  const confirmDeleteUser = async (totpCode: string) => {
+    if (!deleteTarget) return;
+    setActionInProgress(deleteTarget.id);
     try {
-      await axios.delete(`/api/users/${u.id}`, { withCredentials: true });
+      await axios.delete(`/api/users/${deleteTarget.id}`, {
+        withCredentials: true,
+        headers: { "X-Totp-Code": totpCode },
+      });
+      setDeleteTarget(null);
       load();
     } finally {
       setActionInProgress(null);
@@ -676,6 +800,15 @@ function UsersTab({ companies }: { companies: Company[] }) {
 
   return (
     <div className="space-y-4">
+      {deleteTarget && (
+        <DeleteConfirmModal
+          title={`Delete ${deleteTarget.email}?`}
+          description="This will permanently remove this user. This cannot be undone."
+          onConfirm={confirmDeleteUser}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+
       <NewUserForm companies={companies} onCreated={load} />
       {groupKeys.map((group) => (
         <div key={group} className="card overflow-hidden">
@@ -761,7 +894,7 @@ function UsersTab({ companies }: { companies: Company[] }) {
                                 {u.active ? "Deactivate" : "Activate"}
                               </button>
                               <button
-                                onClick={() => handleDelete(u)}
+                                onClick={() => setDeleteTarget(u)}
                                 disabled={busy}
                                 className="text-xs text-zinc-600 hover:text-red-400 transition-colors"
                               >

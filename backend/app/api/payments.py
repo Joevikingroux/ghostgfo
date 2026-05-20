@@ -239,7 +239,7 @@ class ChangePlanResponse(BaseModel):
 # Subscription endpoints (owner only)
 # ---------------------------------------------------------------------------
 
-from app.api.deps import get_current_user  # noqa: E402
+from app.api.deps import get_current_user, require_admin  # noqa: E402
 
 
 def _require_owner(user: Any) -> None:
@@ -520,17 +520,19 @@ def initiate_payment(
     amount = PLAN_PRICES[body.plan]
     m_payment_id = str(company.id)
     today = date.today().isoformat()
+    base = settings.base_url.rstrip("/")
+
+    name_parts = body.owner_name.split() if body.owner_name else []
+    name_first = name_parts[0] if name_parts else ""
+    name_last = " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
 
     fields: dict[str, str] = {
         "merchant_id": settings.payfast_merchant_id,
         "merchant_key": settings.payfast_merchant_key,
-        "return_url": f"{settings.base_url}/payments/success",
-        "cancel_url": f"{settings.base_url}/payments/cancel?pid={company.id}",
-        "notify_url": f"{settings.base_url}/payments/notify",
-        "name_first": body.owner_name.split()[0] if body.owner_name else "",
-        "name_last": " ".join(body.owner_name.split()[1:])
-        if body.owner_name and len(body.owner_name.split()) > 1
-        else "",
+        "return_url": f"{base}/api/payments/success",
+        "cancel_url": f"{base}/api/payments/cancel?pid={company.id}",
+        "notify_url": f"{base}/api/payments/notify",
+        "name_first": name_first,
         "email_address": body.email,
         "m_payment_id": m_payment_id,
         "amount": f"{amount:.2f}",
@@ -544,6 +546,15 @@ def initiate_payment(
         "frequency": "3",
         "cycles": "0",
     }
+    # Only include name_last if non-empty — omitting avoids signature mismatch
+    # when PayFast skips empty fields in their own signature computation
+    if name_last:
+        # Insert after name_first to preserve field order
+        items = list(fields.items())
+        idx = next(i for i, (k, _) in enumerate(items) if k == "name_first") + 1
+        items.insert(idx, ("name_last", name_last))
+        fields = dict(items)
+
     fields["signature"] = _sign(fields)
 
     log.info("payment.initiate company=%s plan=%s", company.id, body.plan)
@@ -587,6 +598,7 @@ async def payfast_notify(request: Request, db: Session = Depends(get_db)) -> str
             received_sig,
             expected_sig,
         )
+        return "ok"
 
     # 2. Verify payment status
     if params.get("payment_status") != "COMPLETE":
@@ -687,14 +699,14 @@ def _send_welcome_email(company: Any, user: Any) -> None:
 
 
 @router.get("/config-test")
-def config_test() -> dict:
+def config_test(admin: Any = Depends(require_admin)) -> dict:
     """Admin debug: verify PayFast config and expose test param string for signature comparison."""
     test_fields: dict[str, str] = {
         "merchant_id": settings.payfast_merchant_id or "NOT_SET",
         "merchant_key": settings.payfast_merchant_key or "NOT_SET",
-        "return_url": f"{settings.base_url}/payments/success",
-        "cancel_url": f"{settings.base_url}/payments/cancel",
-        "notify_url": f"{settings.base_url}/payments/notify",
+        "return_url": f"{settings.base_url.rstrip('/')}/api/payments/success",
+        "cancel_url": f"{settings.base_url.rstrip('/')}/api/payments/cancel",
+        "notify_url": f"{settings.base_url.rstrip('/')}/api/payments/notify",
         "name_first": "Test",
         "name_last": "User",
         "email_address": "test@ghostcfo.co.za",

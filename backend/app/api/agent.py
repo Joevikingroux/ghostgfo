@@ -179,9 +179,6 @@ def ingest(
     agent.last_sync_at = datetime.now(timezone.utc)
     agent.last_sync_status = "accepted"
 
-    if waiting_upload:
-        waiting_upload.status = "processing"
-
     db.commit()
 
     task = generate_report_from_agent.delay(
